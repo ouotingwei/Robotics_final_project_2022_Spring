@@ -7,18 +7,23 @@ TODO:
 #include<Eigen/Dense>
 #include<cmath>
 #include<ros/ros.h>
+#include<visualization_msgs/Marker.h>
 
 //NAMESPACE
 using namespace Eigen;
 using namespace std;
 
-class Kinematics{
+class Path_Planning{
 
     public:
     //FUNCTION
     void joint_variables_mode_output();
     void CartesianPoint_output();
     void output_check(double JOINT_VARIABLE_SOLUTION[6]);
+    void set();
+    double column_mul(Matrix<double, 4, 1> A, Matrix<double, 4, 1> B);
+    void cartesian_planning();
+    void rotation_2_quaternion(Matrix<double, 4, 4> POS_ROTATION);
 
     //VARIABLE
     char mode;
@@ -35,21 +40,74 @@ class Kinematics{
     double JOINT_VARIABLE_SOLUTION_7[6] = {0,0,0,0,0,0};
     double JOINT_VARIABLE_SOLUTION_8[6] = {0,0,0,0,0,0};
 
+    Matrix<double, 4, 4> T6;
+
+    float quaternion_x = 0;
+    float quaternion_y = 0;
+    float quaternion_z = 0;
+    float quaternion_w = 1;
+
+
     //WHILE FLAG
     bool while_flag = false;
-    
+
+    //output_data
+
+
     private:
-    //VARIABLE
+
     double PI = 3.141592;
     double d2 = 6.375000;
+    float sample_time = 0.002;
+    float t_acc = 0.2;
+    float t_trans = 0.5;
+    Matrix<double, 4, 4> POS_A;
+    Matrix<double, 4, 4> POS_B;
+    Matrix<double, 4, 4> POS_C;
     
 };
+
+//setting the private matrix
+void Path_Planning::set(){
+    POS_A << 0, 0, -1, 10,
+            -1, 0, 0, 20,
+            0, 1, 0, 30,
+            0, 0, 0, 1;
+
+    POS_B << 1, 0, 0, 30,
+            0, 1, 0, 20,
+            0, 0, 1, 10,
+            0, 0, 0, 1;
+
+    POS_C << 0, -1, 0, -10,
+            0, 0, 1, -20,
+            -1, 0, 0, -30,
+            0, 0, 0, 1;
+
+}
+
+//this function converts the rotation matrix into a quaternion representation
+//input: 4x4 matrix
+//output : change the global variable quaternion_ 
+void Path_Planning::rotation_2_quaternion(Matrix<double, 4, 4> POS_ROTATION){
+
+}
+
+
+void Path_Planning::cartesian_planning(){
+    
+
+}
+
+double Path_Planning::column_mul(Matrix<double, 4, 1> A, Matrix<double, 4, 1> B){
+    return A(0,0)*B(0,0) + A(1, 0)*B(1, 0) + A(2, 0)*B(2, 0);
+}
 
 //this function handles for computing joint variables input and output Cartesian Point & eular angle
 //this function using local variable 'x' 'y' 'z' 'a' 'A' 'B' 'C'
 //this function using local double matrix 'A1' 'A2' 'A3' 'A4' 'A5' 'A6' 'T6'
 //this function will calculate & print Cartesian Point
-void Kinematics::joint_variables_mode_output(){
+void Path_Planning::joint_variables_mode_output(){
     
     double x, y, z, A, B, C, a;
     Matrix<double, 4, 4> A1;
@@ -121,7 +179,7 @@ void Kinematics::joint_variables_mode_output(){
 //this function using local variable 'double theta' & 'temp_a' 'temp_b'
 //this function using global matrix 'noap_input'
 //this finction will assign value to global array 'JOINT_VARIABLE_SOLUTION'
-void Kinematics::CartesianPoint_output(){
+void Path_Planning::CartesianPoint_output(){
     double theta_1_1, theta_1_2, 
            theta_2_1, theta_2_2, theta_2_3, theta_2_4,
            theta_4_1_1, theta_4_1_2, theta_4_2_1, theta_4_2_2, theta_4_3_1, theta_4_3_2, theta_4_4_1, theta_4_4_2,
@@ -337,7 +395,7 @@ void Kinematics::CartesianPoint_output(){
 
 //this function handles for showing the answer calculated by inverse kinematics
 //this function using global matrix & determine whether the angle limit is met
-void Kinematics::output_check(double JOINT_VARIABLE_SOLUTION[6]){
+void Path_Planning::output_check(double JOINT_VARIABLE_SOLUTION[6]){
     cout<<"<sol>Corresponding variables (θ1, θ2, d3, θ4, θ5, θ6): "<<endl;
     cout<<" (";
     for(int i = 0; i < 6; i++){
@@ -375,20 +433,120 @@ void Kinematics::output_check(double JOINT_VARIABLE_SOLUTION[6]){
         
 }
 
-class Motion_Planning{
-    public:
-
-    private:
-
-};
-
 int main(int argc, char **argv){
 
     ros::init(argc, argv,"path_planning");
 	ros::NodeHandle n;
+    ros::Publisher cartesian_visualization_pub = n.advertise<visualization_msgs::Marker>("cartesian_visualization_marker", 10);
 
-    Kinematics K;
-    Motion_Planning M;
+    ros::Rate r(30);
+
+    Path_Planning P;
+    P.set();
+
+    float f = 0.0;
+    while(ros::ok()){
+        //initialization
+        visualization_msgs::Marker points, line_strip, line_list;
+        points.header.frame_id = line_strip.header.frame_id = line_list.header.frame_id = "/my_frame";
+        points.header.stamp = line_strip.header.stamp = line_list.header.stamp = ros::Time::now();
+        points.ns = line_strip.ns = line_list.ns = "points_and_lines";
+        points.action = line_strip.action = line_list.action = visualization_msgs::Marker::ADD;
+
+        points.id = 0;
+        line_strip.id = 1;
+        line_list.id = 2;
+
+        points.type = visualization_msgs::Marker::POINTS;
+        line_strip.type = visualization_msgs::Marker::LINE_STRIP;
+        line_list.type = visualization_msgs::Marker::LINE_LIST;
+
+        // POINTS markers use x and y scale for width/height respectively
+        points.scale.x = 0.2;
+        points.scale.y = 0.2;
+
+        // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
+        line_strip.scale.x = 0.1;
+        line_list.scale.x = 0.1;
+
+        // Points are green
+        points.color.g = 1.0f;
+        points.color.a = 1.0;
+
+        // Line strip is blue
+        line_strip.color.b = 1.0;
+        line_strip.color.a = 1.0;
+
+        // Line list is red
+        line_list.color.r = 1.0;
+        line_list.color.a = 1.0;
+
+        points.type = visualization_msgs::Marker::POINTS;
+        line_strip.type = visualization_msgs::Marker::LINE_STRIP;
+        line_list.type = visualization_msgs::Marker::LINE_LIST;
+
+        // POINTS markers use x and y scale for width/height respectively
+        points.scale.x = 0.2;
+        points.scale.y = 0.2;
+
+        // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
+        line_strip.scale.x = 0.1;
+        line_list.scale.x = 0.1;
+
+        // Points are green
+        points.color.g = 1.0f;
+        points.color.a = 1.0;
+
+        // Line strip is blue
+        line_strip.color.b = 1.0;
+        line_strip.color.a = 1.0;
+
+        // Line list is red
+        line_list.color.r = 1.0;
+        line_list.color.a = 1.0;
+
+
+        /*
+        for(float t = 0, t < 1, t = t + 0.02){
+
+            //z-axis
+            points.pose.orientation.x = line_strip.pose.orientation.x = line_list.pose.orientation.x = P.quaternion_x;
+            points.pose.orientation.y = line_strip.pose.orientation.y = line_list.pose.orientation.y = P.quaternion_y;
+            points.pose.orientation.z = line_strip.pose.orientation.z = line_list.pose.orientation.z = P.quaternion_z;
+            points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = P.quaternion_w;
+            
+
+        }
+        */
+        
+
+        for (int i = 0; i < 100; i++){
+            float y = 5 * sin(f + i / 100.0f * 2 * M_PI);
+            float z = 5 * cos(f + i / 100.0f * 2 * M_PI);
+            
+            geometry_msgs::Point p;
+            p.x = i - 50;
+            p.y = y;
+            p.z = z;
+
+            points.points.push_back(p);
+            line_strip.points.push_back(p);
+
+            // The line list needs two points for each line
+            line_list.points.push_back(p);
+            p.z += 1.0;
+            line_list.points.push_back(p);
+            }
+
+        cartesian_visualization_pub.publish(points);
+        cartesian_visualization_pub.publish(line_strip);
+        cartesian_visualization_pub.publish(line_list);
+
+        r.sleep();
+
+        f += 0.04;
+
+    }
 
     return 0;
 }
