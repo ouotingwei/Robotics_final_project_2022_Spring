@@ -1,7 +1,5 @@
 /*
 NYCU DME 0811070 TingWei Ou
-TODO:
-    
 */
 #include<iostream>
 #include<Eigen/Dense>
@@ -25,9 +23,10 @@ class Path_Planning{
     void set();
     double column_mul(Matrix<double, 3, 1> A, Matrix<double, 3, 1> B);
     void cartesian_position_planning(float t);
+    void cartesian_velocity_planning(float t);
+    void cartesian_acceleration_planning(float t);
     void rotation_2_quaternion(Matrix<double, 4, 4> POS_ROTATION);
     float boundary_Forward(float A, float B);
-    float boundary_Backward(float B, float C);
 
     //VARIABLE
     char mode;
@@ -71,7 +70,7 @@ class Path_Planning{
     double d2 = 6.375000;
     float sample_time = 0.002;
     float t_acc = 0.2;
-    float T = 1;
+    float T = 0.5;
     float trans_T = 2*t_acc;
     Matrix<double, 4, 4> POS_A;
     Matrix<double, 4, 4> POS_B;
@@ -115,10 +114,6 @@ void Path_Planning::rotation_2_quaternion(Matrix<double, 4, 4> POS_ROTATION){
 
 }
 
-float Path_Planning::boundary_Backward(float B, float C){
-    return ((C - B)*t_acc / 0.5) + B;
-}
-
 float Path_Planning::boundary_Forward(float A, float B){
     return ((B - A)*(0.5 - t_acc) / 0.5) + A;
 }
@@ -143,25 +138,26 @@ void Path_Planning::cartesian_position_planning(float t){
 
     B_B = atan2(sqrt(pow(POS_B(2, 0), 2) + pow(POS_B(2, 1), 2)), POS_B(2, 2));
     B_A = atan2(POS_B(1, 2) / sin(B_B), POS_B(0, 2) / sin(B_B)); 
+
+    if(sin(B_B == 0)){
+        B_A = atan2(0, 0);
+    }
     
-    B_A = atan2(0, 0);
-
     B_C = atan2(POS_B(2, 1) / sin(B_B), -1*POS_B(2, 0) / sin(B_B));
-
     C_B = atan2(sqrt(pow(POS_C(2, 0), 2) + pow(POS_C(2, 1), 2)), POS_C(2, 2));
     C_A = atan2(POS_C(1, 2) / sin(C_B), POS_C(0, 2) / sin(C_B));
     C_C = atan2(POS_C(2, 1) / sin(C_B), -1*POS_C(2, 0) / sin(C_B));
 
     if(t < 0.3){
         
-        float h = t / 0.5;
+        float h = t / T;
 
         position_x = (B_X - A_X)*h + A_X;
         position_y = (B_Y - A_Y)*h + A_Y;
         position_z = (B_Z - A_Z)*h + A_Z;
         position_A = (B_A - A_A)*h + A_A;
         position_B = (B_B - A_B)*h + A_B;
-        position_C = A_C;
+        position_C = (B_C - A_C)*h + A_C;
 
         //cout<<"B_A = "<<B_A <<" A_A = "<<A_A<<endl;
 
@@ -178,19 +174,14 @@ void Path_Planning::cartesian_position_planning(float t){
     }else if(t >= 0.3 && t < 0.7){
         t = t - 0.5;
 
-        float h = (t + t_acc) / (2*t_acc);
+        float h = (t + t_acc) / (trans_T);
 
-        if(abs(C_C - A_C) > 90){
-            A_C = A_C + 180;
-            A_B = -1*A_B;
-        }
-
-        position_x = ((((boundary_Backward(B_X, C_X) - B_X)*t_acc / T) + (boundary_Forward(A_X, B_X) - B_X))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_X, B_X) - B_X)))*h + B_X + (boundary_Forward(A_X, B_X) - B_X);
-        position_y = ((((boundary_Backward(B_Y, C_Y) - B_Y)*t_acc / T) + (boundary_Forward(A_Y, B_Y) - B_Y))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_Y, B_Y) - B_Y)))*h + B_Y + (boundary_Forward(A_Y, B_Y) - B_Y);
-        position_z = ((((boundary_Backward(B_Z, C_Z) - B_Z)*t_acc / T) + (boundary_Forward(A_Z, B_Z) - B_Z))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_Z, B_Z) - B_Z)))*h + B_Z + (boundary_Forward(A_Z, B_Z) - B_Z);
-        position_A = ((((boundary_Backward(B_A, C_A) - B_A)*t_acc / T) + (boundary_Forward(A_A, B_A) - B_A))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_A, B_A) - B_A)))*h + B_A + (boundary_Forward(A_A, B_A) - B_A);
-        position_B = ((((boundary_Backward(B_B, C_B) - B_B)*t_acc / T) + (boundary_Forward(A_B, B_B) - B_B))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_B, B_B) - B_B)))*h + B_B + (boundary_Forward(A_B, B_B) - B_B);
-        position_C = (C_C - A_C)*h + A_C;
+        position_x = ((((C_X - B_X)*t_acc / T) + (boundary_Forward(A_X, B_X) - B_X))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_X, B_X) - B_X)))*h + B_X + (boundary_Forward(A_X, B_X) - B_X);
+        position_y = ((((C_Y - B_Y)*t_acc / T) + (boundary_Forward(A_Y, B_Y) - B_Y))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_Y, B_Y) - B_Y)))*h + B_Y + (boundary_Forward(A_Y, B_Y) - B_Y);
+        position_z = ((((C_Z - B_Z)*t_acc / T) + (boundary_Forward(A_Z, B_Z) - B_Z))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_Z, B_Z) - B_Z)))*h + B_Z + (boundary_Forward(A_Z, B_Z) - B_Z);
+        position_A = ((((C_A - B_A)*t_acc / T) + (boundary_Forward(A_A, B_A) - B_A))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_A, B_A) - B_A)))*h + B_A + (boundary_Forward(A_A, B_A) - B_A);
+        position_B = ((((C_B - B_B)*t_acc / T) + (boundary_Forward(A_B, B_B) - B_B))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_B, B_B) - B_B)))*h + B_B + (boundary_Forward(A_B, B_B) - B_B);
+        position_C = ((((C_C - B_C)*t_acc / T) + (boundary_Forward(A_C, B_C) - B_C))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_C, B_C) - B_C)))*h + B_C + (boundary_Forward(A_C, B_C) - B_C);
 
         //cout<<"B_A = "<<B_A <<" A_A = "<<A_A<<endl;
 
@@ -209,16 +200,16 @@ void Path_Planning::cartesian_position_planning(float t){
 
     }else{
 
-        t = t - 0.7;
+        t = t - 0.5;
 
-        float h = t / 0.3;
+        float h = t / T;
 
         position_x = (C_X - B_X)*h + B_X;
         position_y = (C_Y - B_Y)*h + B_Y;
         position_z = (C_Z - B_Z)*h + B_Z;
         position_A = (C_A - B_A)*h + B_A;
         position_B = (C_B - B_B)*h + B_B;
-        position_C = C_C;
+        position_C = (C_C - B_C)*h + B_C;
 
         //cout<<"B_A = "<< B_A <<" A_A = "<<A_A<<endl;
 
@@ -231,12 +222,183 @@ void Path_Planning::cartesian_position_planning(float t){
                         
         rotation_2_quaternion(position_T);
 
-        t = t + 0.7;
+        t = t + 0.5;
 
     }
 
     
 
+}
+
+void Path_Planning::cartesian_velocity_planning(float t){
+    A_X = POS_A(0, 3);
+    A_Y = POS_A(1, 3);
+    A_Z = POS_A(2, 3);
+
+    B_X = POS_B(0, 3);
+    B_Y = POS_B(1, 3);
+    B_Z = POS_B(2, 3);
+
+    C_X = POS_C(0, 3);
+    C_Y = POS_C(1, 3);
+    C_Z = POS_C(2, 3);
+
+    A_B = atan2(sqrt(pow(POS_A(2, 0), 2) + pow(POS_A(2, 1), 2)), POS_A(2, 2));
+    A_A = atan2(POS_A(1, 2) / sin(A_B), POS_A(0, 2) / sin(A_B));
+    A_C = atan2(POS_A(2, 1) / sin(A_B), -1*POS_A(2, 0) / sin(A_B));
+
+    B_B = atan2(sqrt(pow(POS_B(2, 0), 2) + pow(POS_B(2, 1), 2)), POS_B(2, 2));
+    B_A = atan2(POS_B(1, 2) / sin(B_B), POS_B(0, 2) / sin(B_B)); 
+
+    if(sin(B_B == 0)){
+        B_A = atan2(0, 0);
+    }
+    
+    B_C = atan2(POS_B(2, 1) / sin(B_B), -1*POS_B(2, 0) / sin(B_B));
+    C_B = atan2(sqrt(pow(POS_C(2, 0), 2) + pow(POS_C(2, 1), 2)), POS_C(2, 2));
+    C_A = atan2(POS_C(1, 2) / sin(C_B), POS_C(0, 2) / sin(C_B));
+    C_C = atan2(POS_C(2, 1) / sin(C_B), -1*POS_C(2, 0) / sin(C_B));
+
+    if(t < 0.3){
+
+        velocity_x = (B_X - A_X) / T;
+        velocity_y = (B_Y - A_Y) / T;
+        velocity_z = (B_Z - A_Z) / T;
+        velocity_A = (B_A - A_A) / T;
+        velocity_B = (B_B - A_B) / T;
+        velocity_C = (B_C - A_C) / T;
+
+        velocity_T << cos(velocity_A)*cos(velocity_B)*cos(velocity_C) - sin(velocity_A)*sin(velocity_C),    -1*cos(velocity_A)*cos(velocity_B)*sin(velocity_C) - sin(velocity_A)*cos(velocity_C),   cos(velocity_A)*sin(velocity_B),    velocity_x,
+                        sin(velocity_A)*cos(velocity_B)*cos(velocity_C) + cos(velocity_A)*sin(velocity_C),    -1*sin(velocity_A)*cos(velocity_B)*sin(velocity_C) + cos(velocity_A)*cos(velocity_C),     sin(velocity_A)*sin(velocity_B),    velocity_y,
+                        -1*sin(velocity_B)*cos(velocity_C),     sin(velocity_B)*sin(velocity_C),    cos(velocity_B),    velocity_z,
+                        0, 0, 0, 1;
+
+        rotation_2_quaternion(velocity_T);
+
+    }else if(t >= 0.3 && t < 0.7){
+        t = t - 0.5;
+
+        float h = (t + t_acc) / (trans_T);
+
+        velocity_x = ((((C_X - B_X)*t_acc / T) + (boundary_Forward(A_X, B_X) - B_X))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(A_X, B_X) - B_X))) / t_acc;
+        velocity_y = ((((C_Y - B_Y)*t_acc / T) + (boundary_Forward(A_Y, B_Y) - B_Y))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(A_Y, B_Y) - B_Y))) / t_acc;
+        velocity_z = ((((C_Z - B_Z)*t_acc / T) + (boundary_Forward(A_Z, B_Z) - B_Z))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(A_Z, B_Z) - B_Z))) / t_acc;
+        velocity_A = ((((C_A - B_A)*t_acc / T) + (boundary_Forward(A_A, B_A) - B_A))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(A_A, B_A) - B_A))) / t_acc;
+        velocity_B = ((((C_B - B_B)*t_acc / T) + (boundary_Forward(A_B, B_B) - B_B))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(A_B, B_B) - B_B))) / t_acc;
+        velocity_C = ((((C_C - B_C)*t_acc / T) + (boundary_Forward(A_C, B_C) - B_C))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(A_C, B_C) - B_C))) / t_acc;
+
+        velocity_T << cos(velocity_A)*cos(velocity_B)*cos(velocity_C) - sin(velocity_A)*sin(velocity_C),    -1*cos(velocity_A)*cos(velocity_B)*sin(velocity_C) - sin(velocity_A)*cos(velocity_C),   cos(velocity_A)*sin(velocity_B),    velocity_x,
+                        sin(velocity_A)*cos(velocity_B)*cos(velocity_C) + cos(velocity_A)*sin(velocity_C),    -1*sin(velocity_A)*cos(velocity_B)*sin(velocity_C) + cos(velocity_A)*cos(velocity_C),     sin(velocity_A)*sin(velocity_B),    velocity_y,
+                        -1*sin(velocity_B)*cos(velocity_C),     sin(velocity_B)*sin(velocity_C),    cos(velocity_B),    velocity_z,
+                        0, 0, 0, 1;
+
+        rotation_2_quaternion(velocity_T);
+
+        t = t + 0.5;
+
+    }else{
+
+        t = t - 0.5;
+
+        float h = t / T;
+
+        velocity_x = (C_X - B_X) / T;
+        velocity_y = (C_Y - B_Y) / T;
+        velocity_z = (C_Z - B_Z) / T;
+        velocity_A = (C_A - B_A) / T;
+        velocity_B = (C_B - B_B) / T;
+        velocity_C = (C_C - B_C) / T;
+
+        velocity_T << cos(velocity_A)*cos(velocity_B)*cos(velocity_C) - sin(velocity_A)*sin(velocity_C),    -1*cos(velocity_A)*cos(velocity_B)*sin(velocity_C) - sin(velocity_A)*cos(velocity_C),   cos(velocity_A)*sin(velocity_B),    velocity_x,
+                        sin(velocity_A)*cos(velocity_B)*cos(velocity_C) + cos(velocity_A)*sin(velocity_C),    -1*sin(velocity_A)*cos(velocity_B)*sin(velocity_C) + cos(velocity_A)*cos(velocity_C),     sin(velocity_A)*sin(velocity_B),    velocity_y,
+                        -1*sin(velocity_B)*cos(velocity_C),     sin(velocity_B)*sin(velocity_C),    cos(velocity_B),    velocity_z,
+                        0, 0, 0, 1;
+
+        rotation_2_quaternion(velocity_T);
+
+        t = t + 0.5;
+
+    }
+}
+
+void Path_Planning::cartesian_acceleration_planning(float t){
+    A_X = POS_A(0, 3);
+    A_Y = POS_A(1, 3);
+    A_Z = POS_A(2, 3);
+
+    B_X = POS_B(0, 3);
+    B_Y = POS_B(1, 3);
+    B_Z = POS_B(2, 3);
+
+    C_X = POS_C(0, 3);
+    C_Y = POS_C(1, 3);
+    C_Z = POS_C(2, 3);
+
+    A_B = atan2(sqrt(pow(POS_A(2, 0), 2) + pow(POS_A(2, 1), 2)), POS_A(2, 2));
+    A_A = atan2(POS_A(1, 2) / sin(A_B), POS_A(0, 2) / sin(A_B));
+    A_C = atan2(POS_A(2, 1) / sin(A_B), -1*POS_A(2, 0) / sin(A_B));
+
+    B_B = atan2(sqrt(pow(POS_B(2, 0), 2) + pow(POS_B(2, 1), 2)), POS_B(2, 2));
+    B_A = atan2(POS_B(1, 2) / sin(B_B), POS_B(0, 2) / sin(B_B)); 
+
+    if(sin(B_B == 0)){
+        B_A = atan2(0, 0);
+    }
+    
+    B_C = atan2(POS_B(2, 1) / sin(B_B), -1*POS_B(2, 0) / sin(B_B));
+    C_B = atan2(sqrt(pow(POS_C(2, 0), 2) + pow(POS_C(2, 1), 2)), POS_C(2, 2));
+    C_A = atan2(POS_C(1, 2) / sin(C_B), POS_C(0, 2) / sin(C_B));
+    C_C = atan2(POS_C(2, 1) / sin(C_B), -1*POS_C(2, 0) / sin(C_B));
+
+    if(t < 0.3){
+
+        acceleration_x = acceleration_y = acceleration_z = acceleration_A = acceleration_B = acceleration_C = 0;
+
+        acceleration_T << cos(acceleration_A)*cos(acceleration_B)*cos(acceleration_C) - sin(acceleration_A)*sin(acceleration_C),    -1*cos(acceleration_A)*cos(acceleration_B)*sin(acceleration_C) - sin(acceleration_A)*cos(acceleration_C),   cos(acceleration_A)*sin(acceleration_B),    acceleration_x,
+                        sin(acceleration_A)*cos(acceleration_B)*cos(acceleration_C) + cos(acceleration_A)*sin(acceleration_C),    -1*sin(acceleration_A)*cos(acceleration_B)*sin(acceleration_C) + cos(acceleration_A)*cos(acceleration_C),     sin(acceleration_A)*sin(acceleration_B),    acceleration_y,
+                        -1*sin(acceleration_B)*cos(acceleration_C),     sin(acceleration_B)*sin(acceleration_C),    cos(acceleration_B),    acceleration_z,
+                        0, 0, 0, 1;
+
+        rotation_2_quaternion(acceleration_T);
+
+    }else if(t >= 0.3 && t < 0.7){
+        t = t - 0.5;
+
+        float h = (t + t_acc) / (trans_T);
+
+        acceleration_x = ((((C_X - B_X)*t_acc / T) + (boundary_Forward(A_X, B_X) - B_X))*(1 - h))*3*h / pow(t_acc, 2);
+        acceleration_y = ((((C_Y - B_Y)*t_acc / T) + (boundary_Forward(A_Y, B_Y) - B_Y))*(1 - h))*3*h / pow(t_acc, 2);
+        acceleration_z = ((((C_Z - B_Z)*t_acc / T) + (boundary_Forward(A_Z, B_Z) - B_Z))*(1 - h))*3*h / pow(t_acc, 2);
+        acceleration_A = ((((C_A - B_A)*t_acc / T) + (boundary_Forward(A_A, B_A) - B_A))*(1 - h))*3*h / pow(t_acc, 2);
+        acceleration_B = ((((C_B - B_B)*t_acc / T) + (boundary_Forward(A_B, B_B) - B_B))*(1 - h))*3*h / pow(t_acc, 2);
+        acceleration_C = ((((C_C - B_C)*t_acc / T) + (boundary_Forward(A_C, B_C) - B_C))*(1 - h))*3*h / pow(t_acc, 2);
+        
+
+        acceleration_T << cos(acceleration_A)*cos(acceleration_B)*cos(acceleration_C) - sin(acceleration_A)*sin(acceleration_C),    -1*cos(acceleration_A)*cos(acceleration_B)*sin(acceleration_C) - sin(acceleration_A)*cos(acceleration_C),   cos(acceleration_A)*sin(acceleration_B),    acceleration_x,
+                        sin(acceleration_A)*cos(acceleration_B)*cos(acceleration_C) + cos(acceleration_A)*sin(acceleration_C),    -1*sin(acceleration_A)*cos(acceleration_B)*sin(acceleration_C) + cos(acceleration_A)*cos(acceleration_C),     sin(acceleration_A)*sin(acceleration_B),    acceleration_y,
+                        -1*sin(acceleration_B)*cos(acceleration_C),     sin(acceleration_B)*sin(acceleration_C),    cos(acceleration_B),    acceleration_z,
+                        0, 0, 0, 1;
+
+        rotation_2_quaternion(acceleration_T);
+
+        t = t + 0.5;
+
+    }else{
+
+        t = t - 0.5;
+
+        acceleration_x = acceleration_y = acceleration_z = acceleration_A = acceleration_B = acceleration_C = 0;
+
+        acceleration_T << cos(acceleration_A)*cos(acceleration_B)*cos(acceleration_C) - sin(acceleration_A)*sin(acceleration_C),    -1*cos(acceleration_A)*cos(acceleration_B)*sin(acceleration_C) - sin(acceleration_A)*cos(acceleration_C),   cos(acceleration_A)*sin(acceleration_B),    acceleration_x,
+                        sin(acceleration_A)*cos(acceleration_B)*cos(acceleration_C) + cos(acceleration_A)*sin(acceleration_C),    -1*sin(acceleration_A)*cos(acceleration_B)*sin(acceleration_C) + cos(acceleration_A)*cos(acceleration_C),     sin(acceleration_A)*sin(acceleration_B),    acceleration_y,
+                        -1*sin(acceleration_B)*cos(acceleration_C),     sin(acceleration_B)*sin(acceleration_C),    cos(acceleration_B),    acceleration_z,
+                        0, 0, 0, 1;
+
+        rotation_2_quaternion(acceleration_T);
+
+        t = t + 0.5;
+
+    }
 }
 
 double Path_Planning::column_mul(Matrix<double, 3, 1> A, Matrix<double, 3, 1> B){
@@ -582,6 +744,8 @@ int main(int argc, char **argv){
     ros::Publisher cartesian_visualization_pub_pose = n.advertise<geometry_msgs::PoseStamped>("pose", 100);
 
     ros::Publisher cartesian_position_pub = n.advertise<geometry_msgs::Point>("position", 100);
+    ros::Publisher cartesian_velocity_pub = n.advertise<geometry_msgs::Point>("velocity", 100);
+    ros::Publisher cartesian_acceleration_pub = n.advertise<geometry_msgs::Point>("acceleration", 100);
 
     Path_Planning P;
 
@@ -643,48 +807,74 @@ int main(int argc, char **argv){
     line_list.color.r = 1.0;
     line_list.color.a = 1.0;
 
-    ros::Rate r(10);
+    ros::Rate r(50);
+
+    //while(ros::ok()){
+
+
     
-    for(float t = 0; t <= 1; t = t + 0.02){
+        for(float t = 0; t <= 1; t = t + 0.02){
 
-        //z-axis
-        /*
-        points.pose.orientation.x = line_strip.pose.orientation.x = line_list.pose.orientation.x = P.quaternion.x();
-        points.pose.orientation.y = line_strip.pose.orientation.y = line_list.pose.orientation.y = P.quaternion.y();
-        points.pose.orientation.z = line_strip.pose.orientation.z = line_list.pose.orientation.z = P.quaternion.z();
-        */
-        
-        P.cartesian_position_planning(t);
+            //z-axis
+            /*
+            points.pose.orientation.x = line_strip.pose.orientation.x = line_list.pose.orientation.x = P.quaternion.x();
+            points.pose.orientation.y = line_strip.pose.orientation.y = line_list.pose.orientation.y = P.quaternion.y();
+            points.pose.orientation.z = line_strip.pose.orientation.z = line_list.pose.orientation.z = P.quaternion.z();
+            */
+            
+            //P.cartesian_position_planning(t);
+            //P.cartesian_velocity_planning(t);
+            P.cartesian_acceleration_planning(t);
 
-        geometry_msgs::Point point;
-        geometry_msgs::Pose pose;
+            geometry_msgs::Point point;
+            geometry_msgs::Pose pose;
 
-        point.x = P.position_x;
-        point.y = P.position_y;
-        point.z = P.position_z;
-        points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1;
+            point.x = P.position_x;
+            point.y = P.position_y;
+            point.z = P.position_z;
+            points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1;
 
-        points.points.push_back(point);
-        line_strip.points.push_back(point);
+            points.points.push_back(point);
+            line_strip.points.push_back(point);
 
-        cartesian_visualization_pub.publish(points);
-        cartesian_visualization_pub.publish(line_strip);
+            cartesian_visualization_pub.publish(points);
+            cartesian_visualization_pub.publish(line_strip);
 
-        pose.position.x = P.position_x;
-        pose.position.y = P.position_y;
-        pose.position.z = P.position_z;
-        pose.orientation.x = P.quaternion.x();
-        pose.orientation.y = P.quaternion.y();
-        pose.orientation.z = P.quaternion.z();
-        pose.orientation.w = P.quaternion.w();
+            /*
+            pose.position.x = P.position_x;
+            pose.position.y = P.position_y;
+            pose.position.z = P.position_z;
+            pose.orientation.x = P.quaternion.x();
+            pose.orientation.y = P.quaternion.y();
+            pose.orientation.z = P.quaternion.z();
+            pose.orientation.w = P.quaternion.w();
+            */
+            
+            /*
+            pose.position.x = P.velocity_x;
+            pose.position.y = P.velocity_y;
+            pose.position.z = P.velocity_z;
+            pose.orientation.x = P.quaternion.x();
+            pose.orientation.y = P.quaternion.y();
+            pose.orientation.z = P.quaternion.z();
+            pose.orientation.w = P.quaternion.w();
+            */
+            
+            pose.position.x = P.acceleration_x;
+            pose.position.y = P.acceleration_y;
+            pose.position.z = P.acceleration_z;
+            pose.orientation.x = P.quaternion.x();
+            pose.orientation.y = P.quaternion.y();
+            pose.orientation.z = P.quaternion.z();
+            pose.orientation.w = P.quaternion.w();
 
-        //cartesian_visualization_pub_pose.publish(posestamp);
+            cartesian_acceleration_pub.publish(pose);
 
-        //cartesian_position_pub.publish(p);
+            r.sleep();
 
-        r.sleep();
+        }
 
-    }
+    //}
     
     return 0;
 }
