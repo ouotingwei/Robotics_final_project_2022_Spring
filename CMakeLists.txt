@@ -10,6 +10,7 @@ project(robotic_project2)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
+  geometry_msgs
 )
 
 ## System dependencies are found with CMake's conventions

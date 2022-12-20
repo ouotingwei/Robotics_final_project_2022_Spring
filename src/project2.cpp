@@ -8,6 +8,8 @@ TODO:
 #include<cmath>
 #include<ros/ros.h>
 #include<visualization_msgs/Marker.h>
+#include "geometry_msgs/Point.h"
+#include "geometry_msgs/PoseStamped.h"
 
 //NAMESPACE
 using namespace Eigen;
@@ -21,9 +23,11 @@ class Path_Planning{
     void CartesianPoint_output();
     void output_check(double JOINT_VARIABLE_SOLUTION[6]);
     void set();
-    double column_mul(Matrix<double, 4, 1> A, Matrix<double, 4, 1> B);
-    void cartesian_planning();
+    double column_mul(Matrix<double, 3, 1> A, Matrix<double, 3, 1> B);
+    void cartesian_position_planning(float t);
     void rotation_2_quaternion(Matrix<double, 4, 4> POS_ROTATION);
+    float boundary_Forward(float A, float B);
+    float boundary_Backward(float B, float C);
 
     //VARIABLE
     char mode;
@@ -42,17 +46,24 @@ class Path_Planning{
 
     Matrix<double, 4, 4> T6;
 
-    float quaternion_x = 0;
-    float quaternion_y = 0;
-    float quaternion_z = 0;
-    float quaternion_w = 1;
+    Quaterniond quaternion;
 
-
-    //WHILE FLAG
+    //FLAG
     bool while_flag = false;
+    bool rotation_or_linear = false; //false = linear , true = linear
 
     //output_data
+    float position_x, position_y, position_z, position_A, position_B, position_C;
+    float velocity_x, velocity_y, velocity_z, velocity_A, velocity_B, velocity_C;
+    float acceleration_x, acceleration_y, acceleration_z, acceleration_A, acceleration_B, acceleration_C;
 
+    float A_X, A_Y, A_Z, A_A, A_B, A_C; // A = φ, B = θ, C = ψ
+    float B_X, B_Y, B_Z, B_A, B_B, B_C;
+    float C_X, C_Y, C_Z, C_A, C_B, C_C;
+
+    Matrix<double, 4, 4> position_T;
+    Matrix<double, 4, 4> velocity_T;
+    Matrix<double, 4, 4> acceleration_T;
 
     private:
 
@@ -60,7 +71,8 @@ class Path_Planning{
     double d2 = 6.375000;
     float sample_time = 0.002;
     float t_acc = 0.2;
-    float t_trans = 0.5;
+    float T = 1;
+    float trans_T = 2*t_acc;
     Matrix<double, 4, 4> POS_A;
     Matrix<double, 4, 4> POS_B;
     Matrix<double, 4, 4> POS_C;
@@ -91,15 +103,143 @@ void Path_Planning::set(){
 //output : change the global variable quaternion_ 
 void Path_Planning::rotation_2_quaternion(Matrix<double, 4, 4> POS_ROTATION){
 
+    Matrix3d rotation_matrix;
+    rotation_matrix << POS_ROTATION(0, 0), POS_ROTATION(0, 1), POS_ROTATION(0, 2),
+                       POS_ROTATION(1, 0), POS_ROTATION(1, 1), POS_ROTATION(1, 2),
+                       POS_ROTATION(2, 0), POS_ROTATION(2, 1), POS_ROTATION(2, 2);
+
+    quaternion = rotation_matrix;
+
+    //cout<< quaternion.x() <<" "<< quaternion.y() <<" "<< quaternion.z() <<" "<< quaternion.w() << endl;
+    //cout<< POS_ROTATION <<endl;
+
 }
 
+float Path_Planning::boundary_Backward(float B, float C){
+    return ((C - B)*t_acc / 0.5) + B;
+}
 
-void Path_Planning::cartesian_planning(){
+float Path_Planning::boundary_Forward(float A, float B){
+    return ((B - A)*(0.5 - t_acc) / 0.5) + A;
+}
+
+void Path_Planning::cartesian_position_planning(float t){
+
+    A_X = POS_A(0, 3);
+    A_Y = POS_A(1, 3);
+    A_Z = POS_A(2, 3);
+
+    B_X = POS_B(0, 3);
+    B_Y = POS_B(1, 3);
+    B_Z = POS_B(2, 3);
+
+    C_X = POS_C(0, 3);
+    C_Y = POS_C(1, 3);
+    C_Z = POS_C(2, 3);
+
+    A_B = atan2(sqrt(pow(POS_A(2, 0), 2) + pow(POS_A(2, 1), 2)), POS_A(2, 2));
+    A_A = atan2(POS_A(1, 2) / sin(A_B), POS_A(0, 2) / sin(A_B));
+    A_C = atan2(POS_A(2, 1) / sin(A_B), -1*POS_A(2, 0) / sin(A_B));
+
+    B_B = atan2(sqrt(pow(POS_B(2, 0), 2) + pow(POS_B(2, 1), 2)), POS_B(2, 2));
+    B_A = atan2(POS_B(1, 2) / sin(B_B), POS_B(0, 2) / sin(B_B)); 
+    
+    B_A = atan2(0, 0);
+
+    B_C = atan2(POS_B(2, 1) / sin(B_B), -1*POS_B(2, 0) / sin(B_B));
+
+    C_B = atan2(sqrt(pow(POS_C(2, 0), 2) + pow(POS_C(2, 1), 2)), POS_C(2, 2));
+    C_A = atan2(POS_C(1, 2) / sin(C_B), POS_C(0, 2) / sin(C_B));
+    C_C = atan2(POS_C(2, 1) / sin(C_B), -1*POS_C(2, 0) / sin(C_B));
+
+    if(t < 0.3){
+        
+        float h = t / 0.5;
+
+        position_x = (B_X - A_X)*h + A_X;
+        position_y = (B_Y - A_Y)*h + A_Y;
+        position_z = (B_Z - A_Z)*h + A_Z;
+        position_A = (B_A - A_A)*h + A_A;
+        position_B = (B_B - A_B)*h + A_B;
+        position_C = A_C;
+
+        //cout<<"B_A = "<<B_A <<" A_A = "<<A_A<<endl;
+
+        //cout<< position_A << " " << position_B << " " << position_C<<endl;
+
+        position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
+                        sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
+                        -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
+                        0, 0, 0, 1;
+
+        rotation_2_quaternion(position_T);
+
+
+    }else if(t >= 0.3 && t < 0.7){
+        t = t - 0.5;
+
+        float h = (t + t_acc) / (2*t_acc);
+
+        if(abs(C_C - A_C) > 90){
+            A_C = A_C + 180;
+            A_B = -1*A_B;
+        }
+
+        position_x = ((((boundary_Backward(B_X, C_X) - B_X)*t_acc / T) + (boundary_Forward(A_X, B_X) - B_X))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_X, B_X) - B_X)))*h + B_X + (boundary_Forward(A_X, B_X) - B_X);
+        position_y = ((((boundary_Backward(B_Y, C_Y) - B_Y)*t_acc / T) + (boundary_Forward(A_Y, B_Y) - B_Y))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_Y, B_Y) - B_Y)))*h + B_Y + (boundary_Forward(A_Y, B_Y) - B_Y);
+        position_z = ((((boundary_Backward(B_Z, C_Z) - B_Z)*t_acc / T) + (boundary_Forward(A_Z, B_Z) - B_Z))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_Z, B_Z) - B_Z)))*h + B_Z + (boundary_Forward(A_Z, B_Z) - B_Z);
+        position_A = ((((boundary_Backward(B_A, C_A) - B_A)*t_acc / T) + (boundary_Forward(A_A, B_A) - B_A))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_A, B_A) - B_A)))*h + B_A + (boundary_Forward(A_A, B_A) - B_A);
+        position_B = ((((boundary_Backward(B_B, C_B) - B_B)*t_acc / T) + (boundary_Forward(A_B, B_B) - B_B))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_B, B_B) - B_B)))*h + B_B + (boundary_Forward(A_B, B_B) - B_B);
+        position_C = (C_C - A_C)*h + A_C;
+
+        //cout<<"B_A = "<<B_A <<" A_A = "<<A_A<<endl;
+
+        //cout<< position_A << " " << position_B << " " << position_C<<endl;
+
+        position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
+                        sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
+                        -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
+                        0, 0, 0, 1;
+
+        rotation_2_quaternion(position_T);
+
+        t = t + 0.5;
+
+        //cout<< boundary_Backward(B_X, C_X) <<endl;
+
+    }else{
+
+        t = t - 0.7;
+
+        float h = t / 0.3;
+
+        position_x = (C_X - B_X)*h + B_X;
+        position_y = (C_Y - B_Y)*h + B_Y;
+        position_z = (C_Z - B_Z)*h + B_Z;
+        position_A = (C_A - B_A)*h + B_A;
+        position_B = (C_B - B_B)*h + B_B;
+        position_C = C_C;
+
+        //cout<<"B_A = "<< B_A <<" A_A = "<<A_A<<endl;
+
+        //cout<< position_A << " " << position_B << " " << position_C<<endl;
+
+        position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
+                        sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
+                        -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
+                        0, 0, 0, 1;
+                        
+        rotation_2_quaternion(position_T);
+
+        t = t + 0.7;
+
+    }
+
     
 
 }
 
-double Path_Planning::column_mul(Matrix<double, 4, 1> A, Matrix<double, 4, 1> B){
+double Path_Planning::column_mul(Matrix<double, 3, 1> A, Matrix<double, 3, 1> B){
     return A(0,0)*B(0,0) + A(1, 0)*B(1, 0) + A(2, 0)*B(2, 0);
 }
 
@@ -173,6 +313,7 @@ void Path_Planning::joint_variables_mode_output(){
     cout<<"Cartesian Point (x, y, z, ϕ, θ, ψ) = "<<endl;
     cout<<"     ( "<<x<<", "<<y<<", "<<z<<", "<<A<<", "<<B<<", "<<C<<" )"<<endl;
     cout<<"-----------------------------------"<<endl;
+    
 }
 
 //this function handles inverse kinematics & calculate six JOINT VARIABLE
@@ -437,116 +578,120 @@ int main(int argc, char **argv){
 
     ros::init(argc, argv,"path_planning");
 	ros::NodeHandle n;
-    ros::Publisher cartesian_visualization_pub = n.advertise<visualization_msgs::Marker>("cartesian_visualization_marker", 10);
+    ros::Publisher cartesian_visualization_pub = n.advertise<visualization_msgs::Marker>("cartesian_visualization_marker", 10000);
+    ros::Publisher cartesian_visualization_pub_pose = n.advertise<geometry_msgs::PoseStamped>("pose", 10000);
 
-    ros::Rate r(30);
+    ros::Publisher cartesian_position_pub = n.advertise<geometry_msgs::Point>("position", 10000);
+    
 
     Path_Planning P;
+
     P.set();
 
-    float f = 0.0;
-    while(ros::ok()){
-        //initialization
-        visualization_msgs::Marker points, line_strip, line_list;
-        points.header.frame_id = line_strip.header.frame_id = line_list.header.frame_id = "/my_frame";
-        points.header.stamp = line_strip.header.stamp = line_list.header.stamp = ros::Time::now();
-        points.ns = line_strip.ns = line_list.ns = "points_and_lines";
-        points.action = line_strip.action = line_list.action = visualization_msgs::Marker::ADD;
+    //initialization
+    visualization_msgs::Marker points, line_strip, line_list;
+    points.header.frame_id = line_strip.header.frame_id = line_list.header.frame_id = "my_frame";
+    points.header.stamp = line_strip.header.stamp = line_list.header.stamp = ros::Time::now();
+    points.ns = line_strip.ns = line_list.ns = "points_and_lines";
+    points.action = line_strip.action = line_list.action = visualization_msgs::Marker::ADD;
 
-        points.id = 0;
-        line_strip.id = 1;
-        line_list.id = 2;
+    points.id = 0;
+    line_strip.id = 1;
+    line_list.id = 2;
 
-        points.type = visualization_msgs::Marker::POINTS;
-        line_strip.type = visualization_msgs::Marker::LINE_STRIP;
-        line_list.type = visualization_msgs::Marker::LINE_LIST;
+    points.type = visualization_msgs::Marker::POINTS;
+    line_strip.type = visualization_msgs::Marker::LINE_STRIP;
+    line_list.type = visualization_msgs::Marker::LINE_LIST;
 
-        // POINTS markers use x and y scale for width/height respectively
-        points.scale.x = 0.2;
-        points.scale.y = 0.2;
+    // POINTS markers use x and y scale for width/height respectively
+    points.scale.x = 0.5;
+    points.scale.y = 0.5;
 
-        // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
-        line_strip.scale.x = 0.1;
-        line_list.scale.x = 0.1;
+    // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
+    line_strip.scale.x = 0.1;
+    line_list.scale.x = 0.1;
 
-        // Points are green
-        points.color.g = 1.0f;
-        points.color.a = 1.0;
+    // Points are green
+    points.color.g = 1.0f;
+    points.color.a = 1.0;
 
-        // Line strip is blue
-        line_strip.color.b = 1.0;
-        line_strip.color.a = 1.0;
+    // Line strip is blue
+    line_strip.color.b = 1.0;
+    line_strip.color.a = 1.0;
 
-        // Line list is red
-        line_list.color.r = 1.0;
-        line_list.color.a = 1.0;
+    // Line list is red
+    line_list.color.r = 1.0;
+    line_list.color.a = 1.0;
 
-        points.type = visualization_msgs::Marker::POINTS;
-        line_strip.type = visualization_msgs::Marker::LINE_STRIP;
-        line_list.type = visualization_msgs::Marker::LINE_LIST;
+    points.type = visualization_msgs::Marker::POINTS;
+    line_strip.type = visualization_msgs::Marker::LINE_STRIP;
+    line_list.type = visualization_msgs::Marker::LINE_LIST;
 
-        // POINTS markers use x and y scale for width/height respectively
-        points.scale.x = 0.2;
-        points.scale.y = 0.2;
+    // POINTS markers use x and y scale for width/height respectively
+    points.scale.x = 0.2;
+    points.scale.y = 0.2;
 
-        // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
-        line_strip.scale.x = 0.1;
-        line_list.scale.x = 0.1;
+    // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
+    line_strip.scale.x = 0.1;
+    line_list.scale.x = 0.1;
 
-        // Points are green
-        points.color.g = 1.0f;
-        points.color.a = 1.0;
+    // Points are green
+    points.color.g = 1.0f;
+    points.color.a = 1.0;
 
-        // Line strip is blue
-        line_strip.color.b = 1.0;
-        line_strip.color.a = 1.0;
+    // Line strip is blue
+    line_strip.color.b = 1.0;
+    line_strip.color.a = 1.0;
 
-        // Line list is red
-        line_list.color.r = 1.0;
-        line_list.color.a = 1.0;
+    // Line list is red
+    line_list.color.r = 1.0;
+    line_list.color.a = 1.0;
 
+    ros::Rate r(10);
+    
+    for(float t = 0; t <= 1; t = t + 0.02){
 
+        //z-axis
         /*
-        for(float t = 0, t < 1, t = t + 0.02){
-
-            //z-axis
-            points.pose.orientation.x = line_strip.pose.orientation.x = line_list.pose.orientation.x = P.quaternion_x;
-            points.pose.orientation.y = line_strip.pose.orientation.y = line_list.pose.orientation.y = P.quaternion_y;
-            points.pose.orientation.z = line_strip.pose.orientation.z = line_list.pose.orientation.z = P.quaternion_z;
-            points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = P.quaternion_w;
-            
-
-        }
+        points.pose.orientation.x = line_strip.pose.orientation.x = line_list.pose.orientation.x = P.quaternion.x();
+        points.pose.orientation.y = line_strip.pose.orientation.y = line_list.pose.orientation.y = P.quaternion.y();
+        points.pose.orientation.z = line_strip.pose.orientation.z = line_list.pose.orientation.z = P.quaternion.z();
         */
         
+        points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1;
 
-        for (int i = 0; i < 100; i++){
-            float y = 5 * sin(f + i / 100.0f * 2 * M_PI);
-            float z = 5 * cos(f + i / 100.0f * 2 * M_PI);
-            
-            geometry_msgs::Point p;
-            p.x = i - 50;
-            p.y = y;
-            p.z = z;
+        P.cartesian_position_planning(t);
 
-            points.points.push_back(p);
-            line_strip.points.push_back(p);
+        geometry_msgs::Point point;
+        geometry_msgs::Pose pose;
+        point.x = P.position_x;
+        point.y = P.position_y;
+        point.z = P.position_z;
 
-            // The line list needs two points for each line
-            line_list.points.push_back(p);
-            p.z += 1.0;
-            line_list.points.push_back(p);
-            }
+        points.points.push_back(point);
+        line_strip.points.push_back(point);
 
         cartesian_visualization_pub.publish(points);
         cartesian_visualization_pub.publish(line_strip);
-        cartesian_visualization_pub.publish(line_list);
+
+        pose.position.x = P.position_x;
+        pose.position.y = P.position_y;
+        pose.position.z = P.position_z;
+
+        pose.orientation.x = P.quaternion.x();
+        pose.orientation.y = P.quaternion.y();
+        pose.orientation.z = P.quaternion.z();
+        pose.orientation.w = P.quaternion.w();
+
+        cartesian_visualization_pub_pose.publish(pose);
+
+
+
+        //cartesian_position_pub.publish(p);
 
         r.sleep();
 
-        f += 0.04;
-
     }
-
+    
     return 0;
 }
