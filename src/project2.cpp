@@ -578,11 +578,10 @@ int main(int argc, char **argv){
 
     ros::init(argc, argv,"path_planning");
 	ros::NodeHandle n;
-    ros::Publisher cartesian_visualization_pub = n.advertise<visualization_msgs::Marker>("cartesian_visualization_marker", 10000);
-    ros::Publisher cartesian_visualization_pub_pose = n.advertise<geometry_msgs::PoseStamped>("pose", 10000);
+    ros::Publisher cartesian_visualization_pub = n.advertise<visualization_msgs::Marker>("cartesian_visualization_marker", 100);
+    ros::Publisher cartesian_visualization_pub_pose = n.advertise<geometry_msgs::PoseStamped>("pose", 100);
 
-    ros::Publisher cartesian_position_pub = n.advertise<geometry_msgs::Point>("position", 10000);
-    
+    ros::Publisher cartesian_position_pub = n.advertise<geometry_msgs::Point>("position", 100);
 
     Path_Planning P;
 
@@ -593,7 +592,6 @@ int main(int argc, char **argv){
     points.header.frame_id = line_strip.header.frame_id = line_list.header.frame_id = "my_frame";
     points.header.stamp = line_strip.header.stamp = line_list.header.stamp = ros::Time::now();
     points.ns = line_strip.ns = line_list.ns = "points_and_lines";
-    points.action = line_strip.action = line_list.action = visualization_msgs::Marker::ADD;
 
     points.id = 0;
     line_strip.id = 1;
@@ -601,7 +599,6 @@ int main(int argc, char **argv){
 
     points.type = visualization_msgs::Marker::POINTS;
     line_strip.type = visualization_msgs::Marker::LINE_STRIP;
-    line_list.type = visualization_msgs::Marker::LINE_LIST;
 
     // POINTS markers use x and y scale for width/height respectively
     points.scale.x = 0.5;
@@ -625,7 +622,6 @@ int main(int argc, char **argv){
 
     points.type = visualization_msgs::Marker::POINTS;
     line_strip.type = visualization_msgs::Marker::LINE_STRIP;
-    line_list.type = visualization_msgs::Marker::LINE_LIST;
 
     // POINTS markers use x and y scale for width/height respectively
     points.scale.x = 0.2;
@@ -658,15 +654,15 @@ int main(int argc, char **argv){
         points.pose.orientation.z = line_strip.pose.orientation.z = line_list.pose.orientation.z = P.quaternion.z();
         */
         
-        points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1;
-
         P.cartesian_position_planning(t);
 
         geometry_msgs::Point point;
         geometry_msgs::Pose pose;
+
         point.x = P.position_x;
         point.y = P.position_y;
         point.z = P.position_z;
+        points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1;
 
         points.points.push_back(point);
         line_strip.points.push_back(point);
@@ -677,15 +673,12 @@ int main(int argc, char **argv){
         pose.position.x = P.position_x;
         pose.position.y = P.position_y;
         pose.position.z = P.position_z;
-
         pose.orientation.x = P.quaternion.x();
         pose.orientation.y = P.quaternion.y();
         pose.orientation.z = P.quaternion.z();
         pose.orientation.w = P.quaternion.w();
 
-        cartesian_visualization_pub_pose.publish(pose);
-
-
+        //cartesian_visualization_pub_pose.publish(posestamp);
 
         //cartesian_position_pub.publish(p);
 
