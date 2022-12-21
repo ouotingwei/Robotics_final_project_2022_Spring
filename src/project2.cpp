@@ -27,6 +27,7 @@ class Path_Planning{
     void cartesian_acceleration_planning(float t);
     void rotation_2_quaternion(Matrix<double, 4, 4> POS_ROTATION);
     float boundary_Forward(float A, float B);
+    float divide(float A, float B);
 
     //VARIABLE
     char mode;
@@ -118,6 +119,18 @@ float Path_Planning::boundary_Forward(float A, float B){
     return ((B - A)*(0.5 - t_acc) / 0.5) + A;
 }
 
+float Path_Planning::divide(float A, float B){
+    if(A == 0 && B == 0){
+        return 0;
+    }else if(A == 0 && B != 0 ){
+        return 0;
+    }else if(B == 0 && A != 0){
+        return 999999999;
+    }else{
+        return A / B;
+    }
+}
+
 void Path_Planning::cartesian_position_planning(float t){
 
     A_X = POS_A(0, 3);
@@ -133,20 +146,17 @@ void Path_Planning::cartesian_position_planning(float t){
     C_Z = POS_C(2, 3);
 
     A_B = atan2(sqrt(pow(POS_A(2, 0), 2) + pow(POS_A(2, 1), 2)), POS_A(2, 2));
-    A_A = atan2(POS_A(1, 2) / sin(A_B), POS_A(0, 2) / sin(A_B));
-    A_C = atan2(POS_A(2, 1) / sin(A_B), -1*POS_A(2, 0) / sin(A_B));
+    A_A = atan2(divide(POS_A(1, 2), sin(A_B)), divide(POS_A(0, 2), sin(A_B)));
+    A_C = atan2(divide(POS_A(2, 1), sin(A_B)), -1*divide(POS_A(2, 0), sin(A_B)));
 
     B_B = atan2(sqrt(pow(POS_B(2, 0), 2) + pow(POS_B(2, 1), 2)), POS_B(2, 2));
-    B_A = atan2(POS_B(1, 2) / sin(B_B), POS_B(0, 2) / sin(B_B)); 
+    B_A = atan2(divide(POS_B(1, 2), sin(B_B)), divide(POS_B(0, 2), sin(B_B)));
+    B_C = atan2(divide(POS_B(2, 1), sin(B_B)), -1*divide(POS_B(2, 0), sin(B_B)));
 
-    if(sin(B_B == 0)){
-        B_A = atan2(0, 0);
-    }
-    
-    B_C = atan2(POS_B(2, 1) / sin(B_B), -1*POS_B(2, 0) / sin(B_B));
     C_B = atan2(sqrt(pow(POS_C(2, 0), 2) + pow(POS_C(2, 1), 2)), POS_C(2, 2));
-    C_A = atan2(POS_C(1, 2) / sin(C_B), POS_C(0, 2) / sin(C_B));
-    C_C = atan2(POS_C(2, 1) / sin(C_B), -1*POS_C(2, 0) / sin(C_B));
+    C_A = atan2(divide(POS_C(1, 2), sin(C_B)), divide(POS_C(0, 2), sin(C_B)));
+    C_C = atan2(divide(POS_C(2, 1), sin(C_B)) , -1*divide(POS_C(2, 0), sin(C_B)));
+
 
     if(t < 0.3){
         
@@ -159,7 +169,7 @@ void Path_Planning::cartesian_position_planning(float t){
         position_B = (B_B - A_B)*h + A_B;
         position_C = (B_C - A_C)*h + A_C;
 
-        //cout<<"B_A = "<<B_A <<" A_A = "<<A_A<<endl;
+        //cout<<"B_C = "<<B_C <<" A_C = "<<A_C<<endl;
 
         //cout<< position_A << " " << position_B << " " << position_C<<endl;
 
@@ -244,20 +254,16 @@ void Path_Planning::cartesian_velocity_planning(float t){
     C_Z = POS_C(2, 3);
 
     A_B = atan2(sqrt(pow(POS_A(2, 0), 2) + pow(POS_A(2, 1), 2)), POS_A(2, 2));
-    A_A = atan2(POS_A(1, 2) / sin(A_B), POS_A(0, 2) / sin(A_B));
-    A_C = atan2(POS_A(2, 1) / sin(A_B), -1*POS_A(2, 0) / sin(A_B));
+    A_A = atan2(divide(POS_A(1, 2), sin(A_B)), divide(POS_A(0, 2), sin(A_B)));
+    A_C = atan2(divide(POS_A(2, 1), sin(A_B)), -1*divide(POS_A(2, 0), sin(A_B)));
 
     B_B = atan2(sqrt(pow(POS_B(2, 0), 2) + pow(POS_B(2, 1), 2)), POS_B(2, 2));
-    B_A = atan2(POS_B(1, 2) / sin(B_B), POS_B(0, 2) / sin(B_B)); 
+    B_A = atan2(divide(POS_B(1, 2), sin(B_B)), divide(POS_B(0, 2), sin(B_B)));
+    B_C = atan2(divide(POS_B(2, 1), sin(B_B)), -1*divide(POS_B(2, 0), sin(B_B)));
 
-    if(sin(B_B == 0)){
-        B_A = atan2(0, 0);
-    }
-    
-    B_C = atan2(POS_B(2, 1) / sin(B_B), -1*POS_B(2, 0) / sin(B_B));
     C_B = atan2(sqrt(pow(POS_C(2, 0), 2) + pow(POS_C(2, 1), 2)), POS_C(2, 2));
-    C_A = atan2(POS_C(1, 2) / sin(C_B), POS_C(0, 2) / sin(C_B));
-    C_C = atan2(POS_C(2, 1) / sin(C_B), -1*POS_C(2, 0) / sin(C_B));
+    C_A = atan2(divide(POS_C(1, 2), sin(C_B)), divide(POS_C(0, 2), sin(C_B)));
+    C_C = atan2(divide(POS_C(2, 1), sin(C_B)) , -1*divide(POS_C(2, 0), sin(C_B)));
 
     if(t < 0.3){
 
@@ -335,20 +341,16 @@ void Path_Planning::cartesian_acceleration_planning(float t){
     C_Z = POS_C(2, 3);
 
     A_B = atan2(sqrt(pow(POS_A(2, 0), 2) + pow(POS_A(2, 1), 2)), POS_A(2, 2));
-    A_A = atan2(POS_A(1, 2) / sin(A_B), POS_A(0, 2) / sin(A_B));
-    A_C = atan2(POS_A(2, 1) / sin(A_B), -1*POS_A(2, 0) / sin(A_B));
+    A_A = atan2(divide(POS_A(1, 2), sin(A_B)), divide(POS_A(0, 2), sin(A_B)));
+    A_C = atan2(divide(POS_A(2, 1), sin(A_B)), -1*divide(POS_A(2, 0), sin(A_B)));
 
     B_B = atan2(sqrt(pow(POS_B(2, 0), 2) + pow(POS_B(2, 1), 2)), POS_B(2, 2));
-    B_A = atan2(POS_B(1, 2) / sin(B_B), POS_B(0, 2) / sin(B_B)); 
+    B_A = atan2(divide(POS_B(1, 2), sin(B_B)), divide(POS_B(0, 2), sin(B_B)));
+    B_C = atan2(divide(POS_B(2, 1), sin(B_B)), -1*divide(POS_B(2, 0), sin(B_B)));
 
-    if(sin(B_B == 0)){
-        B_A = atan2(0, 0);
-    }
-    
-    B_C = atan2(POS_B(2, 1) / sin(B_B), -1*POS_B(2, 0) / sin(B_B));
     C_B = atan2(sqrt(pow(POS_C(2, 0), 2) + pow(POS_C(2, 1), 2)), POS_C(2, 2));
-    C_A = atan2(POS_C(1, 2) / sin(C_B), POS_C(0, 2) / sin(C_B));
-    C_C = atan2(POS_C(2, 1) / sin(C_B), -1*POS_C(2, 0) / sin(C_B));
+    C_A = atan2(divide(POS_C(1, 2), sin(C_B)), divide(POS_C(0, 2), sin(C_B)));
+    C_C = atan2(divide(POS_C(2, 1), sin(C_B)) , -1*divide(POS_C(2, 0), sin(C_B)));
 
     if(t < 0.3){
 
@@ -738,6 +740,8 @@ void Path_Planning::output_check(double JOINT_VARIABLE_SOLUTION[6]){
 
 int main(int argc, char **argv){
 
+    char format;
+
     ros::init(argc, argv,"path_planning");
 	ros::NodeHandle n;
     ros::Publisher cartesian_visualization_pub = n.advertise<visualization_msgs::Marker>("cartesian_visualization_marker", 100);
@@ -752,44 +756,28 @@ int main(int argc, char **argv){
     P.set();
 
     //initialization
-    visualization_msgs::Marker points, line_strip, line_list;
-    points.header.frame_id = line_strip.header.frame_id = line_list.header.frame_id = "my_frame";
-    points.header.stamp = line_strip.header.stamp = line_list.header.stamp = ros::Time::now();
-    points.ns = line_strip.ns = line_list.ns = "points_and_lines";
+    visualization_msgs::Marker points, line_strip, line_list, line_arrow;
+    points.header.frame_id = line_strip.header.frame_id = line_arrow.header.frame_id = "my_frame";
+    points.header.stamp = line_strip.header.stamp = line_arrow.header.stamp = ros::Time::now();
+    points.ns = line_strip.ns  = "points_and_lines";
+    line_arrow.ns = "points_arrow";
 
     points.id = 0;
     line_strip.id = 1;
     line_list.id = 2;
+    line_arrow.id = 3;
 
     points.type = visualization_msgs::Marker::POINTS;
     line_strip.type = visualization_msgs::Marker::LINE_STRIP;
+    line_arrow.type = visualization_msgs::Marker::ARROW;
 
     // POINTS markers use x and y scale for width/height respectively
     points.scale.x = 0.5;
     points.scale.y = 0.5;
 
-    // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
-    line_strip.scale.x = 0.1;
-    line_list.scale.x = 0.1;
-
-    // Points are green
-    points.color.g = 1.0f;
-    points.color.a = 1.0;
-
-    // Line strip is blue
-    line_strip.color.b = 1.0;
-    line_strip.color.a = 1.0;
-
-    // Line list is red
-    line_list.color.r = 1.0;
-    line_list.color.a = 1.0;
-
-    points.type = visualization_msgs::Marker::POINTS;
-    line_strip.type = visualization_msgs::Marker::LINE_STRIP;
-
-    // POINTS markers use x and y scale for width/height respectively
-    points.scale.x = 0.2;
-    points.scale.y = 0.2;
+    line_arrow.scale.x = 5;
+    line_arrow.scale.y = 1;
+    line_arrow.scale.z = 1;
 
     // LINE_STRIP/LINE_LIST markers use only the x component of scale, for the line width
     line_strip.scale.x = 0.1;
@@ -803,44 +791,36 @@ int main(int argc, char **argv){
     line_strip.color.b = 1.0;
     line_strip.color.a = 1.0;
 
-    // Line list is red
-    line_list.color.r = 1.0;
-    line_list.color.a = 1.0;
-
-    ros::Rate r(50);
-
-    //while(ros::ok()){
-
-
+    // Arrow list is red
+    line_arrow.color.r = 1.0;
+    line_arrow.color.a = 1.0;
     
-        for(float t = 0; t <= 1; t = t + 0.02){
+    //line_arrow.lifetime = ros::Duration();
 
-            //z-axis
-            /*
-            points.pose.orientation.x = line_strip.pose.orientation.x = line_list.pose.orientation.x = P.quaternion.x();
-            points.pose.orientation.y = line_strip.pose.orientation.y = line_list.pose.orientation.y = P.quaternion.y();
-            points.pose.orientation.z = line_strip.pose.orientation.z = line_list.pose.orientation.z = P.quaternion.z();
-            */
-            
-            //P.cartesian_position_planning(t);
-            //P.cartesian_velocity_planning(t);
-            P.cartesian_acceleration_planning(t);
+    ros::Rate r(10);
 
-            geometry_msgs::Point point;
-            geometry_msgs::Pose pose;
+    cout<< "[ * ]Please choose a output format "<< endl;
+    cout<< " a = cartesian move position  /  b = cartesian move velocity      /  c = cartesian move acceleration "<< endl;
+    cout<< " d = joint move angle         /  e = joint move angular velocity  /  f = joint move acceleration "<<endl;
+    cout<<"g = cartesian move rviz visualization  /  h = joint move rviz visualization "<< endl;
+    cin >> format;
 
-            point.x = P.position_x;
-            point.y = P.position_y;
-            point.z = P.position_z;
-            points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1;
+    for(float t = 0; t <= 1; t = t + 0.02){
 
-            points.points.push_back(point);
-            line_strip.points.push_back(point);
+        //z-axis
+        /*
+        points.pose.orientation.x = line_strip.pose.orientation.x = line_list.pose.orientation.x = P.quaternion.x();
+        points.pose.orientation.y = line_strip.pose.orientation.y = line_list.pose.orientation.y = P.quaternion.y();
+        points.pose.orientation.z = line_strip.pose.orientation.z = line_list.pose.orientation.z = P.quaternion.z();
+        */
 
-            cartesian_visualization_pub.publish(points);
-            cartesian_visualization_pub.publish(line_strip);
+        geometry_msgs::Point point;
+        geometry_msgs::Pose pose;
 
-            /*
+        if(format == 'a'){
+
+            P.cartesian_position_planning(t);
+
             pose.position.x = P.position_x;
             pose.position.y = P.position_y;
             pose.position.z = P.position_z;
@@ -848,9 +828,13 @@ int main(int argc, char **argv){
             pose.orientation.y = P.quaternion.y();
             pose.orientation.z = P.quaternion.z();
             pose.orientation.w = P.quaternion.w();
-            */
-            
-            /*
+
+            cartesian_position_pub.publish(pose);
+
+        }else if(format == 'b'){
+
+            P.cartesian_velocity_planning(t);
+
             pose.position.x = P.velocity_x;
             pose.position.y = P.velocity_y;
             pose.position.z = P.velocity_z;
@@ -858,8 +842,13 @@ int main(int argc, char **argv){
             pose.orientation.y = P.quaternion.y();
             pose.orientation.z = P.quaternion.z();
             pose.orientation.w = P.quaternion.w();
-            */
-            
+
+            cartesian_velocity_pub.publish(pose);
+
+        }else if(format == 'c'){
+
+            P.cartesian_acceleration_planning(t);
+
             pose.position.x = P.acceleration_x;
             pose.position.y = P.acceleration_y;
             pose.position.z = P.acceleration_z;
@@ -870,11 +859,38 @@ int main(int argc, char **argv){
 
             cartesian_acceleration_pub.publish(pose);
 
-            r.sleep();
+        }else if(format == 'g'){
+
+            P.cartesian_position_planning(t);
+
+            point.x = P.position_x;
+            point.y = P.position_y;
+            point.z = P.position_z;
+            points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1;
+
+            line_arrow.pose.position.x = P.position_x;
+            line_arrow.pose.position.y = P.position_y;
+            line_arrow.pose.position.z = P.position_z;
+            line_arrow.pose.orientation.x = P.quaternion.x();
+            line_arrow.pose.orientation.y = P.quaternion.y();
+            line_arrow.pose.orientation.z = P.quaternion.z();
+            line_arrow.pose.orientation.w = P.quaternion.w();
+
+            //cout<<P.quaternion.x() << " "<<P.quaternion.y() << " "<<P.quaternion.z() << " " << P.quaternion.w()<<endl;  
+
+            points.points.push_back(point);
+            line_strip.points.push_back(point);
+
+            cartesian_visualization_pub.publish(points);
+            cartesian_visualization_pub.publish(line_strip);
+            cartesian_visualization_pub.publish(line_arrow);
 
         }
 
-    //}
+        r.sleep();
+
+
+    }
     
     return 0;
 }
