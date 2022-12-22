@@ -17,9 +17,8 @@ class Path_Planning{
 
     public:
     //FUNCTION
-    void joint_variables_mode_output();
-    void CartesianPoint_output();
-    void output_check(double JOINT_VARIABLE_SOLUTION[6]);
+    void Kinematics();
+    void Inverse_Kinematics(Matrix<double, 4, 4> noap_input);
     void set();
     double column_mul(Matrix<double, 3, 1> A, Matrix<double, 3, 1> B);
     void cartesian_position_planning(float t);
@@ -28,12 +27,15 @@ class Path_Planning{
     void rotation_2_quaternion(Matrix<double, 4, 4> POS_ROTATION);
     float boundary_Forward(float A, float B);
     float divide(float A, float B);
+    double angle_normalization(double theta);
+    void find_ok_pos();
+    void joint_move_angle(float t);
+    bool output_check(double JOINT_VARIABLE_SOLUTION[6]);
 
     //VARIABLE
     char mode;
     double CartesianPoint[4]={0,0,0,0}; // [0] = n, [1] = o, [2] = a, [3] = p
     double joint_variables[6]={0,0,0,0,0,0}; // [0] = θ1, [1] = θ2, [2] = d3 , [3] = θ4, [4] = θ5, [5] = d6
-    Eigen::Matrix<double, 4, 4> noap_input;
     //8 solution by calculation
     double JOINT_VARIABLE_SOLUTION_1[6] = {0,0,0,0,0,0};
     double JOINT_VARIABLE_SOLUTION_2[6] = {0,0,0,0,0,0};
@@ -48,6 +50,10 @@ class Path_Planning{
 
     Quaterniond quaternion;
 
+    double POS_A_OK[6] = {0, 0, 0, 0, 0, 0};
+    double POS_B_OK[6] = {0, 0, 0, 0, 0, 0};
+    double POS_C_OK[6] = {0, 0, 0, 0, 0, 0};
+
     //FLAG
     bool while_flag = false;
     bool rotation_or_linear = false; //false = linear , true = linear
@@ -60,6 +66,7 @@ class Path_Planning{
     float A_X, A_Y, A_Z, A_A, A_B, A_C; // A = φ, B = θ, C = ψ
     float B_X, B_Y, B_Z, B_A, B_B, B_C;
     float C_X, C_Y, C_Z, C_A, C_B, C_C;
+    float joint_a[6], joint_b[6], joint_c[6];
 
     Matrix<double, 4, 4> position_T;
     Matrix<double, 4, 4> velocity_T;
@@ -236,8 +243,6 @@ void Path_Planning::cartesian_position_planning(float t){
 
     }
 
-    
-
 }
 
 void Path_Planning::cartesian_velocity_planning(float t){
@@ -411,7 +416,7 @@ double Path_Planning::column_mul(Matrix<double, 3, 1> A, Matrix<double, 3, 1> B)
 //this function using local variable 'x' 'y' 'z' 'a' 'A' 'B' 'C'
 //this function using local double matrix 'A1' 'A2' 'A3' 'A4' 'A5' 'A6' 'T6'
 //this function will calculate & print Cartesian Point
-void Path_Planning::joint_variables_mode_output(){
+void Path_Planning::Kinematics(){
     
     double x, y, z, A, B, C, a;
     Matrix<double, 4, 4> A1;
@@ -459,33 +464,29 @@ void Path_Planning::joint_variables_mode_output(){
     
 
     T6 = (A1*(A2*(A3*(A4*(A5*A6)))));  // 1T6 MATRIX
-
-    //euler angle z-y-z (x, y, z)
-    x = T6(0,3);
-    y = T6(1,3);
-    z = T6(2,3);
-    //euler angle z-y-z (ϕ, θ, ψ)
-    a = atan2(T6(1, 2), T6(0, 2));
-    A = a*180/PI;
-    B = (atan2((T6(0, 2)*cos(a)) + (T6(1, 2)*sin(a)), T6(2,2))*180/PI);
-    C = (atan2((-1*T6(0, 0)*sin(a) + (T6(1, 0)*cos(a))), (-1*T6(0, 1)*sin(a)) + (T6(1, 1)*cos(a)))*180/PI);
-
-    //show solution
-    cout<<"(n, o, a, p) = "<<endl;
-    cout<<T6<<endl;
-    cout<<" "<<endl;
-    cout<<"Cartesian Point (x, y, z, ϕ, θ, ψ) = "<<endl;
-    cout<<"     ( "<<x<<", "<<y<<", "<<z<<", "<<A<<", "<<B<<", "<<C<<" )"<<endl;
-    cout<<"-----------------------------------"<<endl;
     
+}
+
+double Path_Planning::angle_normalization(double theta){
+    if(abs(theta) > 180 && theta < 0){
+        
+        return theta + 360;
+
+    }else if(abs(theta) > 180 && theta > 0){
+        
+        return theta - 360;
+
+    }else{
+        return theta;
+    }
 }
 
 //this function handles inverse kinematics & calculate six JOINT VARIABLE
 //this function using local variable 'double theta' & 'temp_a' 'temp_b'
 //this function using global matrix 'noap_input'
 //this finction will assign value to global array 'JOINT_VARIABLE_SOLUTION'
-void Path_Planning::CartesianPoint_output(){
-    double theta_1_1, theta_1_2, 
+void Path_Planning::Inverse_Kinematics(Matrix<double, 4, 4> noap_input){
+     double theta_1_1 , theta_1_2, 
            theta_2_1, theta_2_2, theta_2_3, theta_2_4,
            theta_4_1_1, theta_4_1_2, theta_4_2_1, theta_4_2_2, theta_4_3_1, theta_4_3_2, theta_4_4_1, theta_4_4_2,
            theta_5_1_1, theta_5_1_2, theta_5_2_1, theta_5_2_2, theta_5_3_1, theta_5_3_2, theta_5_4_1, theta_5_4_2,
@@ -501,85 +502,117 @@ void Path_Planning::CartesianPoint_output(){
     //θ1-1 (20)
     theta_1_1 = atan2(noap_input(1, 3), noap_input(0, 3)) - atan2(d2, sqrt(pow(noap_input(0, 3), 2) + pow(noap_input(1, 3), 2) - pow(d2, 2)));
         JOINT_VARIABLE_SOLUTION_5[0] = (theta_1_1*180/PI);
+        JOINT_VARIABLE_SOLUTION_5[0] = angle_normalization(JOINT_VARIABLE_SOLUTION_5[0]);
         JOINT_VARIABLE_SOLUTION_6[0] = (theta_1_1*180/PI);
+        JOINT_VARIABLE_SOLUTION_6[0] = angle_normalization(JOINT_VARIABLE_SOLUTION_6[0]);
         JOINT_VARIABLE_SOLUTION_7[0] = (theta_1_1*180/PI);
+        JOINT_VARIABLE_SOLUTION_7[0] = angle_normalization(JOINT_VARIABLE_SOLUTION_7[0]);
         JOINT_VARIABLE_SOLUTION_8[0] = (theta_1_1*180/PI);
+        JOINT_VARIABLE_SOLUTION_8[0] = angle_normalization(JOINT_VARIABLE_SOLUTION_8[0]);
 
     //θ1-2 (-74)
     theta_1_2 = (atan2(noap_input(1, 3), noap_input(0, 3)) - atan2(d2, -1*sqrt(pow(noap_input(0, 3), 2) + pow(noap_input(1, 3), 2) - pow(d2, 2))));
         JOINT_VARIABLE_SOLUTION_1[0] = (theta_1_2*180/PI);
+        JOINT_VARIABLE_SOLUTION_1[0] = angle_normalization(JOINT_VARIABLE_SOLUTION_1[0]);
         JOINT_VARIABLE_SOLUTION_2[0] = (theta_1_2*180/PI);
+        JOINT_VARIABLE_SOLUTION_2[0] = angle_normalization(JOINT_VARIABLE_SOLUTION_2[0]);
         JOINT_VARIABLE_SOLUTION_3[0] = (theta_1_2*180/PI);
+        JOINT_VARIABLE_SOLUTION_3[0] = angle_normalization(JOINT_VARIABLE_SOLUTION_3[0]);
         JOINT_VARIABLE_SOLUTION_4[0] = (theta_1_2*180/PI);
+        JOINT_VARIABLE_SOLUTION_4[0] = angle_normalization(JOINT_VARIABLE_SOLUTION_4[0]);
 
     //θ2 -> four solution
     //θ2-1 (20)
     theta_2_1 = atan2((cos(theta_1_1)*noap_input(0, 3)) + (sin(theta_1_1)*noap_input(1, 3)), noap_input(2, 3));
         JOINT_VARIABLE_SOLUTION_5[1] = (theta_2_1*180/PI);
+        JOINT_VARIABLE_SOLUTION_5[1] = angle_normalization(JOINT_VARIABLE_SOLUTION_5[1]);
         JOINT_VARIABLE_SOLUTION_6[1] = (theta_2_1*180/PI);
+        JOINT_VARIABLE_SOLUTION_6[1] = angle_normalization(JOINT_VARIABLE_SOLUTION_6[1]);
 
     //θ2-2 (160)
     theta_2_2 = atan2((cos(theta_1_1)*noap_input(0, 3)) + (sin(theta_1_1)*noap_input(1, 3)), -1*noap_input(2, 3));
         JOINT_VARIABLE_SOLUTION_3[1] = (theta_2_2*180/PI);
+        JOINT_VARIABLE_SOLUTION_3[1] = angle_normalization(JOINT_VARIABLE_SOLUTION_3[1]);
         JOINT_VARIABLE_SOLUTION_4[1] = (theta_2_2*180/PI);
+        JOINT_VARIABLE_SOLUTION_4[1] = angle_normalization(JOINT_VARIABLE_SOLUTION_4[1]);
 
     //θ2-3 (-20)
     theta_2_3 = atan2((cos(theta_1_2)*noap_input(0, 3)) + (sin(theta_1_2)*noap_input(1, 3)), noap_input(2, 3));
         JOINT_VARIABLE_SOLUTION_1[1] = (theta_2_3*180/PI);
+        JOINT_VARIABLE_SOLUTION_1[1] = angle_normalization(JOINT_VARIABLE_SOLUTION_1[1]);
         JOINT_VARIABLE_SOLUTION_2[1] = (theta_2_3*180/PI);
+        JOINT_VARIABLE_SOLUTION_2[1] = angle_normalization(JOINT_VARIABLE_SOLUTION_2[1]);
 
     //θ2-4 (-160)
     theta_2_4 = atan2((cos(theta_1_2)*noap_input(0, 3)) + (sin(theta_1_2)*noap_input(1, 3)), -1*noap_input(2, 3));
         JOINT_VARIABLE_SOLUTION_7[1] = (theta_2_4*180/PI);
+        JOINT_VARIABLE_SOLUTION_7[1] = angle_normalization(JOINT_VARIABLE_SOLUTION_7[1]);
         JOINT_VARIABLE_SOLUTION_8[1] = (theta_2_4*180/PI);
+        JOINT_VARIABLE_SOLUTION_8[1] = angle_normalization(JOINT_VARIABLE_SOLUTION_8[1]);
 
     //d3 -> two solution
     //d_3_1 (20)
     d_3_1 = noap_input(2, 3) / cos(theta_2_1);
         JOINT_VARIABLE_SOLUTION_1[2] = d_3_1;
+        JOINT_VARIABLE_SOLUTION_1[2] = angle_normalization(JOINT_VARIABLE_SOLUTION_1[2]);
         JOINT_VARIABLE_SOLUTION_2[2] = d_3_1;
+        JOINT_VARIABLE_SOLUTION_2[2] = angle_normalization(JOINT_VARIABLE_SOLUTION_2[2]);
         JOINT_VARIABLE_SOLUTION_5[2] = d_3_1;
+        JOINT_VARIABLE_SOLUTION_5[2] = angle_normalization(JOINT_VARIABLE_SOLUTION_5[2]);
         JOINT_VARIABLE_SOLUTION_6[2] = d_3_1;
+        JOINT_VARIABLE_SOLUTION_6[2] = angle_normalization(JOINT_VARIABLE_SOLUTION_6[2]);
 
     //d_3_2 (-20)
     d_3_2 = noap_input(2, 3) / cos(theta_2_2);
         JOINT_VARIABLE_SOLUTION_3[2] = d_3_2;
+        JOINT_VARIABLE_SOLUTION_3[2] = angle_normalization(JOINT_VARIABLE_SOLUTION_3[2]);
         JOINT_VARIABLE_SOLUTION_4[2] = d_3_2;
+        JOINT_VARIABLE_SOLUTION_4[2] = angle_normalization(JOINT_VARIABLE_SOLUTION_4[2]);
         JOINT_VARIABLE_SOLUTION_7[2] = d_3_2;
+        JOINT_VARIABLE_SOLUTION_7[2] = angle_normalization(JOINT_VARIABLE_SOLUTION_7[2]);
         JOINT_VARIABLE_SOLUTION_8[2] = d_3_2;
+        JOINT_VARIABLE_SOLUTION_8[2] = angle_normalization(JOINT_VARIABLE_SOLUTION_8[2]);
 
     //θ4 -> eight solution
     //θ4-1 (79)
     theta_4_1_1 = atan2((-1*sin(theta_1_2)*noap_input(0, 2)) + (cos(theta_1_2)*noap_input(1, 2)), (cos(theta_1_2)*cos(theta_2_3)*noap_input(0, 2)) + (sin(theta_1_2)*cos(theta_2_3)* noap_input(1, 2)) - (sin(theta_2_3)*noap_input(2, 2)));
         JOINT_VARIABLE_SOLUTION_1[3] = theta_4_1_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_1[3] = angle_normalization(JOINT_VARIABLE_SOLUTION_1[3]);
 
     //θ4-1 - 180 (-100)
     theta_4_1_2 = ((theta_4_1_1*180/PI) - 180)*PI/180;
         JOINT_VARIABLE_SOLUTION_2[3] = theta_4_1_2*180/PI;
+        JOINT_VARIABLE_SOLUTION_2[3] = angle_normalization(JOINT_VARIABLE_SOLUTION_2[3]);
 
     //θ4-2(100)
     theta_4_2_1 = atan2((-1*sin(theta_1_2)*noap_input(0, 2)) + (cos(theta_1_2)*noap_input(1, 2)), (cos(theta_1_2)*cos(theta_2_2)*noap_input(0, 2)) + (sin(theta_1_2)*cos(theta_2_2)* noap_input(1, 2)) - (sin(theta_2_2)*noap_input(2, 2)));
         JOINT_VARIABLE_SOLUTION_3[3] = theta_4_2_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_3[3] = angle_normalization(JOINT_VARIABLE_SOLUTION_3[3]);
     
     //θ4-2 - 180  (-79)
     theta_4_2_2 = ((theta_4_2_1*180/PI) - 180)*PI/180;
         JOINT_VARIABLE_SOLUTION_4[3] = theta_4_2_2*180/PI;
+        JOINT_VARIABLE_SOLUTION_4[3] = angle_normalization(JOINT_VARIABLE_SOLUTION_4[3]);
     
     //θ4-3 (20)
     theta_4_3_1 = atan2((-1*sin(theta_1_1)*noap_input(0, 2)) + (cos(theta_1_1)*noap_input(1, 2)), (cos(theta_1_1)*cos(theta_2_1)*noap_input(0, 2)) + (sin(theta_1_1)*cos(theta_2_1)* noap_input(1, 2)) - (sin(theta_2_1)*noap_input(2, 2)));
         JOINT_VARIABLE_SOLUTION_5[3] = theta_4_3_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_5[3] = angle_normalization(JOINT_VARIABLE_SOLUTION_5[3]);
 
     //θ4-3 - 180 (-160)
     theta_4_3_2 = ((theta_4_3_1*180/PI) - 180)*PI/180;
         JOINT_VARIABLE_SOLUTION_6[3] = theta_4_3_2*180/PI;
+        JOINT_VARIABLE_SOLUTION_6[3] = angle_normalization(JOINT_VARIABLE_SOLUTION_6[3]);
 
     //θ4-4 (160)
     theta_4_4_1 = atan2((-1*sin(theta_1_1)*noap_input(0, 2)) + (cos(theta_1_1)*noap_input(1, 2)), (cos(theta_1_1)*cos(theta_2_4)*noap_input(0, 2)) + (sin(theta_1_1)*cos(theta_2_4)* noap_input(1, 2)) - (sin(theta_2_4)*noap_input(2, 2)));
         JOINT_VARIABLE_SOLUTION_7[3] = theta_4_4_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_7[3] = angle_normalization(JOINT_VARIABLE_SOLUTION_7[3]);
 
     //θ4-4 - 180 (-20)
     theta_4_4_2 = ((theta_4_4_1*180/PI) - 180)*PI/180;
         JOINT_VARIABLE_SOLUTION_8[3] = theta_4_4_2*180/PI;
+        JOINT_VARIABLE_SOLUTION_8[3] = angle_normalization(JOINT_VARIABLE_SOLUTION_8[3]);
 
     //θ5 -> eight solution
     //θ5-1 
@@ -587,36 +620,42 @@ void Path_Planning::CartesianPoint_output(){
     temp_b = (cos(theta_1_2)*sin(theta_2_3)*noap_input(0, 2)) + (sin(theta_1_2)*sin(theta_2_3)*noap_input(1, 2)) + (cos(theta_2_3)*noap_input(2, 2));
     theta_5_1_1 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_1[4] = theta_5_1_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_1[4] = angle_normalization(JOINT_VARIABLE_SOLUTION_1[4]);
 
     //θ5-1-2
     temp_a = ((cos(theta_1_2)*cos(theta_2_3)*cos(theta_4_1_2) - sin(theta_1_2)*sin(theta_4_1_2))*noap_input(0 ,2)) + ((sin(theta_1_2)*cos(theta_2_3)*cos(theta_4_1_2) + cos(theta_1_2)*sin(theta_4_1_2))*noap_input(1, 2)) + ((-1*sin(theta_2_3)*cos(theta_4_1_2))*noap_input(2, 2));
     temp_b = (cos(theta_1_2)*sin(theta_2_3)*noap_input(0, 2)) + (sin(theta_1_2)*sin(theta_2_3)*noap_input(1, 2)) + (cos(theta_2_3)*noap_input(2, 2));
     theta_5_1_2 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_2[4] = theta_5_1_2*180/PI;
+        JOINT_VARIABLE_SOLUTION_2[4] = angle_normalization(JOINT_VARIABLE_SOLUTION_2[4]);
 
     //θ5-2-1
     temp_a = ((cos(theta_1_2)*cos(theta_2_2)*cos(theta_4_2_1) - sin(theta_1_2)*sin(theta_4_2_1))*noap_input(0 ,2)) + ((sin(theta_1_2)*cos(theta_2_2)*cos(theta_4_2_1) + cos(theta_1_2)*sin(theta_4_2_1))*noap_input(1, 2)) + ((-1*sin(theta_2_2)*cos(theta_4_2_1))*noap_input(2, 2));
     temp_b = (cos(theta_1_2)*sin(theta_2_2)*noap_input(0, 2)) + (sin(theta_1_2)*sin(theta_2_2)*noap_input(1, 2)) + (cos(theta_2_2)*noap_input(2, 2));
     theta_5_2_1 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_3[4] = theta_5_2_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_3[4] = angle_normalization(JOINT_VARIABLE_SOLUTION_3[4]);
 
     //θ5-2-2
     temp_a = ((cos(theta_1_2)*cos(theta_2_2)*cos(theta_4_2_2) - sin(theta_1_2)*sin(theta_4_2_2))*noap_input(0 ,2)) + ((sin(theta_1_2)*cos(theta_2_2)*cos(theta_4_2_2) + cos(theta_1_2)*sin(theta_4_2_2))*noap_input(1, 2)) + ((-1*sin(theta_2_2)*cos(theta_4_2_2))*noap_input(2, 2));
     temp_b = (cos(theta_1_2)*sin(theta_2_2)*noap_input(0, 2)) + (sin(theta_1_2)*sin(theta_2_2)*noap_input(1, 2)) + (cos(theta_2_2)*noap_input(2, 2));
     theta_5_2_2 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_4[4] = theta_5_2_2*180/PI;
+        JOINT_VARIABLE_SOLUTION_4[4] = angle_normalization(JOINT_VARIABLE_SOLUTION_4[4]);
 
     //θ5-3-1
     temp_a = ((cos(theta_1_1)*cos(theta_2_1)*cos(theta_4_3_1) - sin(theta_1_1)*sin(theta_4_3_1))*noap_input(0 ,2)) + ((sin(theta_1_1)*cos(theta_2_1)*cos(theta_4_3_1) + cos(theta_1_1)*sin(theta_4_3_1))*noap_input(1, 2)) + ((-1*sin(theta_2_1)*cos(theta_4_3_1))*noap_input(2, 2));
     temp_b = (cos(theta_1_1)*sin(theta_2_1)*noap_input(0, 2)) + (sin(theta_1_1)*sin(theta_2_1)*noap_input(1, 2)) + (cos(theta_2_1)*noap_input(2, 2));
     theta_5_3_1 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_5[4] = theta_5_3_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_5[4] = angle_normalization(JOINT_VARIABLE_SOLUTION_5[4]);
 
     //θ5-3-2
     temp_a = ((cos(theta_1_1)*cos(theta_2_1)*cos(theta_4_3_2) - sin(theta_1_1)*sin(theta_4_3_2))*noap_input(0 ,2)) + ((sin(theta_1_1)*cos(theta_2_1)*cos(theta_4_3_2) + cos(theta_1_1)*sin(theta_4_3_2))*noap_input(1, 2)) + ((-1*sin(theta_2_1)*cos(theta_4_3_2))*noap_input(2, 2));
     temp_b = (cos(theta_1_1)*sin(theta_2_1)*noap_input(0, 2)) + (sin(theta_1_1)*sin(theta_2_1)*noap_input(1, 2)) + (cos(theta_2_1)*noap_input(2, 2));
     theta_5_3_2 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_6[4] = theta_5_3_2*180/PI;
+        JOINT_VARIABLE_SOLUTION_6[4] = angle_normalization(JOINT_VARIABLE_SOLUTION_6[4]);
 
 
     //θ5-4-1
@@ -624,12 +663,14 @@ void Path_Planning::CartesianPoint_output(){
     temp_b = (cos(theta_1_1)*sin(theta_2_4)*noap_input(0, 2)) + (sin(theta_1_1)*sin(theta_2_4)*noap_input(1, 2)) + (cos(theta_2_4)*noap_input(2, 2));
     theta_5_4_1 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_7[4] = theta_5_4_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_7[4] = angle_normalization(JOINT_VARIABLE_SOLUTION_7[4]);
 
     //θ5-4-2
     temp_a = ((cos(theta_1_1)*cos(theta_2_4)*cos(theta_4_4_2) - sin(theta_1_1)*sin(theta_4_4_2))*noap_input(0 ,2)) + ((sin(theta_1_1)*cos(theta_2_4)*cos(theta_4_4_2) + cos(theta_1_1)*sin(theta_4_4_2))*noap_input(1, 2)) + ((-1*sin(theta_2_4)*cos(theta_4_4_2))*noap_input(2, 2));
     temp_b = (cos(theta_1_1)*sin(theta_2_4)*noap_input(0, 2)) + (sin(theta_1_1)*sin(theta_2_4)*noap_input(1, 2)) + (cos(theta_2_4)*noap_input(2, 2));
     theta_5_4_2 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_8[4] = theta_5_4_2*180/PI;
+        JOINT_VARIABLE_SOLUTION_8[4] = angle_normalization(JOINT_VARIABLE_SOLUTION_8[4]);
 
     //θ6 -> eight solution
     //θ6-1-1
@@ -639,6 +680,7 @@ void Path_Planning::CartesianPoint_output(){
     temp_b = (temp_fr)*noap_input(0, 1) + (temp_bk)*noap_input(1, 1) + (sin(theta_2_3)*sin(theta_4_1_1))*noap_input(2, 1);
     theta_6_1_1 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_1[5] = theta_6_1_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_1[5] = angle_normalization(JOINT_VARIABLE_SOLUTION_1[5]);
 
     //θ6-1-2
     temp_fr = (-1*(cos(theta_1_2)*cos(theta_2_3)*sin(theta_4_1_2))) - (sin(theta_1_2)*cos(theta_4_1_2));
@@ -647,6 +689,7 @@ void Path_Planning::CartesianPoint_output(){
     temp_b = (temp_fr)*noap_input(0, 1) + (temp_bk)*noap_input(1, 1) + (sin(theta_2_3)*sin(theta_4_1_2))*noap_input(2, 1);
     theta_6_1_2 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_2[5] = theta_6_1_2*180/PI;
+        JOINT_VARIABLE_SOLUTION_2[5] = angle_normalization(JOINT_VARIABLE_SOLUTION_2[5]);
 
     //θ6-2-1
     temp_fr = (-1*(cos(theta_1_2)*cos(theta_2_2)*sin(theta_4_2_1))) - (sin(theta_1_2)*cos(theta_4_2_1));
@@ -655,6 +698,7 @@ void Path_Planning::CartesianPoint_output(){
     temp_b = (temp_fr)*noap_input(0, 1) + (temp_bk)*noap_input(1, 1) + (sin(theta_2_2)*sin(theta_4_2_1))*noap_input(2, 1);
     theta_6_2_1 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_3[5] = theta_6_2_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_3[5] = angle_normalization(JOINT_VARIABLE_SOLUTION_3[5]);
 
     //θ6-2-2
     temp_fr = (-1*(cos(theta_1_2)*cos(theta_2_2)*sin(theta_4_2_2))) - (sin(theta_1_2)*cos(theta_4_2_2));
@@ -663,6 +707,7 @@ void Path_Planning::CartesianPoint_output(){
     temp_b = (temp_fr)*noap_input(0, 1) + (temp_bk)*noap_input(1, 1) + (sin(theta_2_2)*sin(theta_4_2_2))*noap_input(2, 1);
     theta_6_2_2 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_4[5] = theta_6_2_2*180/PI;
+        JOINT_VARIABLE_SOLUTION_4[5] = angle_normalization(JOINT_VARIABLE_SOLUTION_4[5]);
 
     //θ6-3-1
     temp_fr = (-1*(cos(theta_1_1)*cos(theta_2_1)*sin(theta_4_3_1))) - (sin(theta_1_1)*cos(theta_4_3_1));
@@ -671,6 +716,7 @@ void Path_Planning::CartesianPoint_output(){
     temp_b = (temp_fr)*noap_input(0, 1) + (temp_bk)*noap_input(1, 1) + (sin(theta_2_1)*sin(theta_4_3_1))*noap_input(2, 1);
     theta_6_3_1 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_5[5] = theta_6_3_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_5[5] = angle_normalization(JOINT_VARIABLE_SOLUTION_5[5]);
 
     //θ6-3-2
     temp_fr = (-1*(cos(theta_1_1)*cos(theta_2_1)*sin(theta_4_3_2))) - (sin(theta_1_1)*cos(theta_4_3_2));
@@ -679,6 +725,7 @@ void Path_Planning::CartesianPoint_output(){
     temp_b = (temp_fr)*noap_input(0, 1) + (temp_bk)*noap_input(1, 1) + (sin(theta_2_1)*sin(theta_4_3_2))*noap_input(2, 1);
     theta_6_3_2 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_6[5] = theta_6_3_2*180/PI;
+        JOINT_VARIABLE_SOLUTION_6[5] = angle_normalization(JOINT_VARIABLE_SOLUTION_6[5]);
 
     //θ6-4-1
     temp_fr = (-1*(cos(theta_1_1)*cos(theta_2_4)*sin(theta_4_4_1))) - (sin(theta_1_1)*cos(theta_4_4_1));
@@ -687,6 +734,7 @@ void Path_Planning::CartesianPoint_output(){
     temp_b = (temp_fr)*noap_input(0, 1) + (temp_bk)*noap_input(1, 1) + (sin(theta_2_4)*sin(theta_4_4_1))*noap_input(2, 1);
     theta_6_4_1 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_7[5] = theta_6_4_1*180/PI;
+        JOINT_VARIABLE_SOLUTION_7[5] = angle_normalization(JOINT_VARIABLE_SOLUTION_7[5]);
 
     //θ6-4-1
     temp_fr = (-1*(cos(theta_1_1)*cos(theta_2_4)*sin(theta_4_4_2))) - (sin(theta_1_1)*cos(theta_4_4_2));
@@ -695,47 +743,253 @@ void Path_Planning::CartesianPoint_output(){
     temp_b = (temp_fr)*noap_input(0, 1) + (temp_bk)*noap_input(1, 1) + (sin(theta_2_4)*sin(theta_4_4_2))*noap_input(2, 1);
     theta_6_4_2 = atan2(temp_a, temp_b);
         JOINT_VARIABLE_SOLUTION_8[5] = theta_6_4_2*180/PI; 
+        JOINT_VARIABLE_SOLUTION_8[5] = angle_normalization(JOINT_VARIABLE_SOLUTION_8[5]);
 
 }
 
 //this function handles for showing the answer calculated by inverse kinematics
 //this function using global matrix & determine whether the angle limit is met
-void Path_Planning::output_check(double JOINT_VARIABLE_SOLUTION[6]){
-    cout<<"<sol>Corresponding variables (θ1, θ2, d3, θ4, θ5, θ6): "<<endl;
-    cout<<" (";
-    for(int i = 0; i < 6; i++){
-        cout<<"  "<<JOINT_VARIABLE_SOLUTION[i]<<" ";
-    }
-    cout<<" )"<<endl;
+bool Path_Planning::output_check(double JOINT_VARIABLE_SOLUTION[6]){
 
     if(JOINT_VARIABLE_SOLUTION[0] >= 160 || JOINT_VARIABLE_SOLUTION[0] <= -160){
-        cout<<"[error] θ1 is out of range"<<endl;
+        return true;
 
     }
 
     if(JOINT_VARIABLE_SOLUTION[1] >= 125 || JOINT_VARIABLE_SOLUTION[1] <= -125){
-        cout<<"[error] θ2 is out of range"<<endl;
+        return true;
+
     }
 
     if(JOINT_VARIABLE_SOLUTION[2] >= 30 || JOINT_VARIABLE_SOLUTION[2] <= -30){
-        cout<<"[error] d3 is out of range"<<endl;
+        return true;
+
     }
 
     if(JOINT_VARIABLE_SOLUTION[3] >= 140 || JOINT_VARIABLE_SOLUTION[3] <= -140){
-        cout<<"[error] θ4 is out of range"<<endl;
+        return true;
+
     }
 
     if(JOINT_VARIABLE_SOLUTION[4] >= 100 || JOINT_VARIABLE_SOLUTION[4] <= -100){
-        cout<<"[error] θ5 is out of range"<<endl;
+        return true;
+
     }
 
     if(JOINT_VARIABLE_SOLUTION[5] >= 260 || JOINT_VARIABLE_SOLUTION[0] <= -260){
-        cout<<"[error] θ6 is out of range"<<endl;
+        return true;
+        
     }
 
-    cout<<endl;
-    cout<<endl;
+    return false;
         
+}
+
+void Path_Planning::find_ok_pos(){
+
+    Inverse_Kinematics(POS_A);
+
+    if(output_check(JOINT_VARIABLE_SOLUTION_1) == false){
+        for(int i = 0; i < 6; i++){
+            POS_A_OK[i] = JOINT_VARIABLE_SOLUTION_1[i];
+        }
+
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_2) == false){
+        for(int i = 0; i < 6; i++){
+            POS_A_OK[i] = JOINT_VARIABLE_SOLUTION_2[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_3) == false){
+        for(int i = 0; i < 6; i++){
+            POS_A_OK[i] = JOINT_VARIABLE_SOLUTION_3[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_4) == false){
+        for(int i = 0; i < 6; i++){
+            POS_A_OK[i] = JOINT_VARIABLE_SOLUTION_4[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_5) == false){
+        for(int i = 0; i < 6; i++){
+            POS_A_OK[i] = JOINT_VARIABLE_SOLUTION_5[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_6) == false){
+        for(int i = 0; i < 6; i++){
+            POS_A_OK[i] = JOINT_VARIABLE_SOLUTION_6[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_7) == false){
+        for(int i = 0; i < 6; i++){
+            POS_A_OK[i] = JOINT_VARIABLE_SOLUTION_7[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_8) == false){
+        for(int i = 0; i < 6; i++){
+            POS_A_OK[i] = JOINT_VARIABLE_SOLUTION_8[i];
+        }
+    }
+
+    for(int i = 0; i < 6; i++){
+            cout<< POS_A_OK[i]<<" ";
+
+    }
+        cout<< endl;
+
+    Inverse_Kinematics(POS_B);
+
+    if(output_check(JOINT_VARIABLE_SOLUTION_1) == false){
+        for(int i = 0; i < 6; i++){
+            POS_B_OK[i] = JOINT_VARIABLE_SOLUTION_1[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_2) == false){
+        for(int i = 0; i < 6; i++){
+            POS_B_OK[i] = JOINT_VARIABLE_SOLUTION_2[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_3) == false){
+        for(int i = 0; i < 6; i++){
+            POS_B_OK[i] = JOINT_VARIABLE_SOLUTION_3[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_4) == false){
+        for(int i = 0; i < 6; i++){
+            POS_B_OK[i] = JOINT_VARIABLE_SOLUTION_4[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_5) == false){
+        for(int i = 0; i < 6; i++){
+            POS_B_OK[i] = JOINT_VARIABLE_SOLUTION_5[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_6) == false){
+        for(int i = 0; i < 6; i++){
+            POS_B_OK[i] = JOINT_VARIABLE_SOLUTION_6[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_7) == false){
+        for(int i = 0; i < 6; i++){
+            POS_B_OK[i] = JOINT_VARIABLE_SOLUTION_7[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_8) == false){
+        for(int i = 0; i < 6; i++){
+            POS_B_OK[i] = JOINT_VARIABLE_SOLUTION_8[i];
+        }
+    }
+
+    Inverse_Kinematics(POS_C);
+
+    if(output_check(JOINT_VARIABLE_SOLUTION_1) == false){
+        for(int i = 0; i < 6; i++){
+            POS_C_OK[i] = JOINT_VARIABLE_SOLUTION_1[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_2) == false){
+        for(int i = 0; i < 6; i++){
+            POS_C_OK[i] = JOINT_VARIABLE_SOLUTION_2[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_3) == false){
+        for(int i = 0; i < 6; i++){
+            POS_C_OK[i] = JOINT_VARIABLE_SOLUTION_3[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_4) == false){
+        for(int i = 0; i < 6; i++){
+            POS_C_OK[i] = JOINT_VARIABLE_SOLUTION_4[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_5) == false){
+        for(int i = 0; i < 6; i++){
+            POS_C_OK[i] = JOINT_VARIABLE_SOLUTION_5[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_6) == false){
+        for(int i = 0; i < 6; i++){
+            POS_C_OK[i] = JOINT_VARIABLE_SOLUTION_6[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_7) == false){
+        for(int i = 0; i < 6; i++){
+            POS_C_OK[i] = JOINT_VARIABLE_SOLUTION_7[i];
+        }
+    }else if(output_check(JOINT_VARIABLE_SOLUTION_8) == false){
+        for(int i = 0; i < 6; i++){
+            POS_C_OK[i] = JOINT_VARIABLE_SOLUTION_8[i];
+        }
+    }
+
+}
+
+void Path_Planning::joint_move_angle(float t){  
+
+    find_ok_pos();
+
+    
+
+    /*
+    if(t < 0.3){
+        
+        float h = t / T;
+
+        position_x = (B_X - A_X)*h + A_X;
+        position_y = (B_Y - A_Y)*h + A_Y;
+        position_z = (B_Z - A_Z)*h + A_Z;
+        position_A = (B_A - A_A)*h + A_A;
+        position_B = (B_B - A_B)*h + A_B;
+        position_C = (B_C - A_C)*h + A_C;
+
+        //cout<<"B_C = "<<B_C <<" A_C = "<<A_C<<endl;
+
+        //cout<< position_A << " " << position_B << " " << position_C<<endl;
+
+        position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
+                        sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
+                        -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
+                        0, 0, 0, 1;
+
+        rotation_2_quaternion(position_T);
+
+
+    }else if(t >= 0.3 && t < 0.7){
+        t = t - 0.5;
+
+        float h = (t + t_acc) / (trans_T);
+
+        position_x = ((((C_X - B_X)*t_acc / T) + (boundary_Forward(A_X, B_X) - B_X))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_X, B_X) - B_X)))*h + B_X + (boundary_Forward(A_X, B_X) - B_X);
+        position_y = ((((C_Y - B_Y)*t_acc / T) + (boundary_Forward(A_Y, B_Y) - B_Y))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_Y, B_Y) - B_Y)))*h + B_Y + (boundary_Forward(A_Y, B_Y) - B_Y);
+        position_z = ((((C_Z - B_Z)*t_acc / T) + (boundary_Forward(A_Z, B_Z) - B_Z))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_Z, B_Z) - B_Z)))*h + B_Z + (boundary_Forward(A_Z, B_Z) - B_Z);
+        position_A = ((((C_A - B_A)*t_acc / T) + (boundary_Forward(A_A, B_A) - B_A))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_A, B_A) - B_A)))*h + B_A + (boundary_Forward(A_A, B_A) - B_A);
+        position_B = ((((C_B - B_B)*t_acc / T) + (boundary_Forward(A_B, B_B) - B_B))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_B, B_B) - B_B)))*h + B_B + (boundary_Forward(A_B, B_B) - B_B);
+        position_C = ((((C_C - B_C)*t_acc / T) + (boundary_Forward(A_C, B_C) - B_C))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_C, B_C) - B_C)))*h + B_C + (boundary_Forward(A_C, B_C) - B_C);
+
+        //cout<<"B_A = "<<B_A <<" A_A = "<<A_A<<endl;
+
+        //cout<< position_A << " " << position_B << " " << position_C<<endl;
+
+        position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
+                        sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
+                        -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
+                        0, 0, 0, 1;
+
+        rotation_2_quaternion(position_T);
+
+        t = t + 0.5;
+
+        //cout<< boundary_Backward(B_X, C_X) <<endl;
+
+    }else{
+
+        t = t - 0.5;
+
+        float h = t / T;
+
+        position_x = (C_X - B_X)*h + B_X;
+        position_y = (C_Y - B_Y)*h + B_Y;
+        position_z = (C_Z - B_Z)*h + B_Z;
+        position_A = (C_A - B_A)*h + B_A;
+        position_B = (C_B - B_B)*h + B_B;
+        position_C = (C_C - B_C)*h + B_C;
+
+        //cout<<"B_A = "<< B_A <<" A_A = "<<A_A<<endl;
+
+        //cout<< position_A << " " << position_B << " " << position_C<<endl;
+
+        position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
+                        sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
+                        -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
+                        0, 0, 0, 1;
+                        
+        rotation_2_quaternion(position_T);
+
+        t = t + 0.5;
+
+    }
+    */
+
 }
 
 int main(int argc, char **argv){
@@ -858,6 +1112,10 @@ int main(int argc, char **argv){
             pose.orientation.w = P.quaternion.w();
 
             cartesian_acceleration_pub.publish(pose);
+
+        }else if(format == 'd'){
+
+            P.joint_move_angle(t);
 
         }else if(format == 'g'){
 
