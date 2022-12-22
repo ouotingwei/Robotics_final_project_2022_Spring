@@ -751,6 +751,8 @@ void Path_Planning::Inverse_Kinematics(Matrix<double, 4, 4> noap_input){
 //this function using global matrix & determine whether the angle limit is met
 bool Path_Planning::output_check(double JOINT_VARIABLE_SOLUTION[6]){
 
+    return false;
+
     if(JOINT_VARIABLE_SOLUTION[0] >= 160 || JOINT_VARIABLE_SOLUTION[0] <= -160){
         return true;
 
@@ -780,8 +782,6 @@ bool Path_Planning::output_check(double JOINT_VARIABLE_SOLUTION[6]){
         return true;
         
     }
-
-    return false;
         
 }
 
@@ -789,11 +789,12 @@ void Path_Planning::find_ok_pos(){
 
     Inverse_Kinematics(POS_A);
 
-    if(output_check(JOINT_VARIABLE_SOLUTION_1) == false){
+    if(output_check(JOINT_VARIABLE_SOLUTION_1) == true){
         for(int i = 0; i < 6; i++){
             POS_A_OK[i] = JOINT_VARIABLE_SOLUTION_1[i];
         }
 
+        cout<<"1"<<endl;
     }else if(output_check(JOINT_VARIABLE_SOLUTION_2) == false){
         for(int i = 0; i < 6; i++){
             POS_A_OK[i] = JOINT_VARIABLE_SOLUTION_2[i];
@@ -824,11 +825,7 @@ void Path_Planning::find_ok_pos(){
         }
     }
 
-    for(int i = 0; i < 6; i++){
-            cout<< POS_A_OK[i]<<" ";
-
-    }
-        cout<< endl;
+    
 
     Inverse_Kinematics(POS_B);
 
@@ -907,6 +904,13 @@ void Path_Planning::find_ok_pos(){
 void Path_Planning::joint_move_angle(float t){  
 
     find_ok_pos();
+
+    for(int i = 0; i < 6; i++){
+        cout << POS_A_OK[i]<<" ";
+
+
+    }
+    cout<<endl;
 
     
 
