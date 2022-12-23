@@ -31,6 +31,10 @@ class Path_Planning{
     double angle_normalization(double theta);
     void find_ok_pos();
     void joint_move_angle(float t);
+    void joint_move_angular_velocity(float t);
+    void joint_move_angular_acceleration(float t);
+    void joint_move_angle(float t);
+    
     bool output_check(double JOINT_VARIABLE_SOLUTION[6]);
 
     //VARIABLE
@@ -910,7 +914,6 @@ void Path_Planning::joint_move_angle(float t){
 
     //find_ok_pos();
     
-
     if(t < 0.3){
         
         float h = t / T;
@@ -954,6 +957,80 @@ void Path_Planning::joint_move_angle(float t){
 
     }
 
+}
+
+void Path_Planning::joint_move_angular_velocity(float t){
+
+    if(t < 0.3){
+
+        j_1_velocity = (POS_B_OK[0] - POS_A_OK[0]) / T;
+        j_2_velocity = (POS_B_OK[1] - POS_A_OK[1]) / T;
+        j_3_velocity = (POS_B_OK[2] - POS_A_OK[2]) / T;
+        j_4_velocity = (POS_B_OK[3] - POS_A_OK[3]) / T;
+        j_5_velocity = (POS_B_OK[4] - POS_A_OK[4]) / T;
+        j_1_velocity = (POS_B_OK[5] - POS_A_OK[5]) / T;
+
+    }else if(t >= 0.3 && t < 0.7){
+        t = t - 0.5;
+
+        float h = (t + t_acc) / (trans_T);
+
+        j_1_velocity = ((((POS_C_OK[0] - POS_B_OK[0])*t_acc / T) + (boundary_Forward(POS_A_OK[0], POS_B_OK[0]) - POS_B_OK[0]))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(POS_A_OK[0], POS_B_OK[0]) - POS_B_OK[0]))) / t_acc;
+        j_2_velocity = ((((POS_C_OK[1] - POS_B_OK[1])*t_acc / T) + (boundary_Forward(POS_A_OK[1], POS_B_OK[1]) - POS_B_OK[1]))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(POS_A_OK[1], POS_B_OK[1]) - POS_B_OK[1]))) / t_acc;
+        j_3_velocity = ((((POS_C_OK[2] - POS_B_OK[2])*t_acc / T) + (boundary_Forward(POS_A_OK[2], POS_B_OK[2]) - POS_B_OK[2]))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(POS_A_OK[2], POS_B_OK[2]) - POS_B_OK[2]))) / t_acc;
+        j_4_velocity = ((((POS_C_OK[3] - POS_B_OK[3])*t_acc / T) + (boundary_Forward(POS_A_OK[3], POS_B_OK[3]) - POS_B_OK[3]))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(POS_A_OK[3], POS_B_OK[3]) - POS_B_OK[3]))) / t_acc;
+        j_5_velocity = ((((POS_C_OK[4] - POS_B_OK[4])*t_acc / T) + (boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4]))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4]))) / t_acc;
+        j_6_velocity = ((((POS_C_OK[5] - POS_B_OK[5])*t_acc / T) + (boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5]))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5]))) / t_acc;
+
+        t = t + 0.5;
+
+    }else{
+
+        t = t - 0.5;
+
+        float h = t / T;
+
+        j_1_velocity = (POS_C_OK[0] - POS_B_OK[0]) / T;
+        j_2_velocity = (POS_C_OK[1] - POS_B_OK[1]) / T;
+        j_3_velocity = (POS_C_OK[2] - POS_B_OK[2]) / T;
+        j_4_velocity = (POS_C_OK[3] - POS_B_OK[3]) / T;
+        j_5_velocity = (POS_C_OK[4] - POS_B_OK[4]) / T;
+        j_6_velocity = (POS_C_OK[5] - POS_B_OK[5]) / T;
+
+        t = t + 0.5;
+
+    }
+}
+
+void Path_Planning::cartesian_acceleration_planning(float t){
+
+    if(t < 0.3){
+
+        j_1_acceleration = j_2_acceleration = j_3_acceleration = j_4_acceleration = j_5_acceleration = j_6_acceleration = 0;
+
+    }else if(t >= 0.3 && t < 0.7){
+        t = t - 0.5;
+
+        float h = (t + t_acc) / (trans_T);
+
+        j_1_acceleration = ((((POS_C_OK[0] - POS_B_OK[0])*t_acc / T) + (boundary_Forward(POS_A_OK[0], POS_B_OK[0]) - POS_B_OK[0]))*(1 - h))*3*h / pow(t_acc, 2);
+        j_2_acceleration = ((((POS_C_OK[1] - POS_B_OK[1])*t_acc / T) + (boundary_Forward(POS_A_OK[1], POS_B_OK[1]) - POS_B_OK[1]))*(1 - h))*3*h / pow(t_acc, 2);
+        j_3_acceleration = ((((POS_C_OK[2] - POS_B_OK[2])*t_acc / T) + (boundary_Forward(POS_A_OK[2], POS_B_OK[2]) - POS_B_OK[2]))*(1 - h))*3*h / pow(t_acc, 2);
+        j_4_acceleration = ((((POS_C_OK[3] - POS_B_OK[3])*t_acc / T) + (boundary_Forward(POS_A_OK[3], POS_B_OK[3]) - POS_B_OK[3]))*(1 - h))*3*h / pow(t_acc, 2);
+        j_5_acceleration = ((((POS_C_OK[4] - POS_B_OK[4])*t_acc / T) + (boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4]))*(1 - h))*3*h / pow(t_acc, 2);
+        j_6_acceleration = ((((POS_C_OK[5] - POS_B_OK[5])*t_acc / T) + (boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5]))*(1 - h))*3*h / pow(t_acc, 2);
+
+        t = t + 0.5;
+
+    }else{
+
+        t = t - 0.5;
+
+        j_1_acceleration = j_2_acceleration = j_3_acceleration = j_4_acceleration = j_5_acceleration = j_6_acceleration = 0;
+
+        t = t + 0.5;
+
+    }
 }
 
 int main(int argc, char **argv){
@@ -1102,6 +1179,46 @@ int main(int argc, char **argv){
                 j.data = P.j_5_position;
             }else if(joint == 6){
                 j.data = P.j_6_position;
+            }
+
+            joint_pub.publish(j);
+
+        }else if(format == 'e'){
+
+            P.joint_move_angular_velocity(t);
+
+            if(joint == 1){
+                j.data = P.j_1_velocity;
+            }else if(joint == 2){
+                j.data = P.j_1_velocity;
+            }else if(joint == 3){
+                j.data = P.j_1_velocity;
+            }else if(joint == 4){
+                j.data = P.j_1_velocity;
+            }else if(joint == 5){
+                j.data = P.j_1_velocity;
+            }else if(joint == 6){
+                j.data = P.j_1_velocity;
+            }
+
+            joint_pub.publish(j);
+
+        }else if(format == 'f'){
+
+            P.joint_move_angular_acceleration(t);
+
+            if(joint == 1){
+                j.data = P.j_1_acceleration;
+            }else if(joint == 2){
+                j.data = P.j_1_acceleration;
+            }else if(joint == 3){
+                j.data = P.j_1_acceleration;
+            }else if(joint == 4){
+                j.data = P.j_1_acceleration;
+            }else if(joint == 5){
+                j.data = P.j_1_acceleration;
+            }else if(joint == 6){
+                j.data = P.j_1_acceleration;
             }
 
             joint_pub.publish(j);
