@@ -1002,7 +1002,7 @@ void Path_Planning::joint_move_angular_velocity(float t){
     }
 }
 
-void Path_Planning::cartesian_acceleration_planning(float t){
+void Path_Planning::joint_move_angular_acceleration(float t){
 
     if(t < 0.3){
 
