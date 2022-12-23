@@ -8,6 +8,7 @@ NYCU DME 0811070 TingWei Ou
 #include<visualization_msgs/Marker.h>
 #include "geometry_msgs/Point.h"
 #include "geometry_msgs/PoseStamped.h"
+#include <std_msgs/Float32.h>
 
 //NAMESPACE
 using namespace Eigen;
@@ -50,9 +51,9 @@ class Path_Planning{
 
     Quaterniond quaternion;
 
-    double POS_A_OK[6] = {0, 0, 0, 0, 0, 0};
-    double POS_B_OK[6] = {0, 0, 0, 0, 0, 0};
-    double POS_C_OK[6] = {0, 0, 0, 0, 0, 0};
+    double POS_A_OK[6] = {-70.1668, -27.2045, 33.7313, -107.7851, 81.0769, 64.1944};
+    double POS_B_OK[6] = {7.0042, 72.7549, 33.7313, 0, -72.7549, -7.0042};
+    double POS_C_OK[6] = {109.8332, 27.2045, -33.7313, -22.0744, 64.5293, 9.8929};
 
     //FLAG
     bool while_flag = false;
@@ -67,6 +68,10 @@ class Path_Planning{
     float B_X, B_Y, B_Z, B_A, B_B, B_C;
     float C_X, C_Y, C_Z, C_A, C_B, C_C;
     float joint_a[6], joint_b[6], joint_c[6];
+
+    float j_1_position, j_2_position, j_3_position, j_4_position, j_5_position, j_6_position;
+    float j_1_velocity, j_2_velocity, j_3_velocity, j_4_velocity, j_5_velocity, j_6_velocity;
+    float j_1_acceleration, j_2_acceleration, j_3_acceleration, j_4_acceleration, j_5_acceleration, j_6_acceleration;
 
     Matrix<double, 4, 4> position_T;
     Matrix<double, 4, 4> velocity_T;
@@ -903,39 +908,19 @@ void Path_Planning::find_ok_pos(){
 
 void Path_Planning::joint_move_angle(float t){  
 
-    find_ok_pos();
-
-    for(int i = 0; i < 6; i++){
-        cout << POS_A_OK[i]<<" ";
-
-
-    }
-    cout<<endl;
-
+    //find_ok_pos();
     
 
-    /*
     if(t < 0.3){
         
         float h = t / T;
 
-        position_x = (B_X - A_X)*h + A_X;
-        position_y = (B_Y - A_Y)*h + A_Y;
-        position_z = (B_Z - A_Z)*h + A_Z;
-        position_A = (B_A - A_A)*h + A_A;
-        position_B = (B_B - A_B)*h + A_B;
-        position_C = (B_C - A_C)*h + A_C;
-
-        //cout<<"B_C = "<<B_C <<" A_C = "<<A_C<<endl;
-
-        //cout<< position_A << " " << position_B << " " << position_C<<endl;
-
-        position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
-                        sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
-                        -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
-                        0, 0, 0, 1;
-
-        rotation_2_quaternion(position_T);
+        j_1_position = (POS_B_OK[0] - POS_A_OK[0])*h + POS_A_OK[0];
+        j_2_position = (POS_B_OK[1] - POS_A_OK[1])*h + POS_A_OK[1];
+        j_3_position = (POS_B_OK[2] - POS_A_OK[2])*h + POS_A_OK[2];
+        j_4_position = (POS_B_OK[3] - POS_A_OK[3])*h + POS_A_OK[3];
+        j_5_position = (POS_B_OK[4] - POS_A_OK[4])*h + POS_A_OK[4];
+        j_6_position = (POS_B_OK[5] - POS_A_OK[5])*h + POS_A_OK[5];
 
 
     }else if(t >= 0.3 && t < 0.7){
@@ -943,27 +928,14 @@ void Path_Planning::joint_move_angle(float t){
 
         float h = (t + t_acc) / (trans_T);
 
-        position_x = ((((C_X - B_X)*t_acc / T) + (boundary_Forward(A_X, B_X) - B_X))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_X, B_X) - B_X)))*h + B_X + (boundary_Forward(A_X, B_X) - B_X);
-        position_y = ((((C_Y - B_Y)*t_acc / T) + (boundary_Forward(A_Y, B_Y) - B_Y))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_Y, B_Y) - B_Y)))*h + B_Y + (boundary_Forward(A_Y, B_Y) - B_Y);
-        position_z = ((((C_Z - B_Z)*t_acc / T) + (boundary_Forward(A_Z, B_Z) - B_Z))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_Z, B_Z) - B_Z)))*h + B_Z + (boundary_Forward(A_Z, B_Z) - B_Z);
-        position_A = ((((C_A - B_A)*t_acc / T) + (boundary_Forward(A_A, B_A) - B_A))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_A, B_A) - B_A)))*h + B_A + (boundary_Forward(A_A, B_A) - B_A);
-        position_B = ((((C_B - B_B)*t_acc / T) + (boundary_Forward(A_B, B_B) - B_B))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_B, B_B) - B_B)))*h + B_B + (boundary_Forward(A_B, B_B) - B_B);
-        position_C = ((((C_C - B_C)*t_acc / T) + (boundary_Forward(A_C, B_C) - B_C))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_C, B_C) - B_C)))*h + B_C + (boundary_Forward(A_C, B_C) - B_C);
-
-        //cout<<"B_A = "<<B_A <<" A_A = "<<A_A<<endl;
-
-        //cout<< position_A << " " << position_B << " " << position_C<<endl;
-
-        position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
-                        sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
-                        -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
-                        0, 0, 0, 1;
-
-        rotation_2_quaternion(position_T);
+        j_1_position = ((((POS_C_OK[0] - POS_B_OK[0])*t_acc / T) + (boundary_Forward(POS_A_OK[0], POS_B_OK[0]) - POS_B_OK[0]))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(POS_A_OK[0], POS_B_OK[0]) - POS_B_OK[0])))*h + POS_B_OK[0] + (boundary_Forward(POS_A_OK[0], POS_B_OK[0]) - POS_B_OK[0]);
+        j_2_position = ((((POS_C_OK[1] - POS_B_OK[1])*t_acc / T) + (boundary_Forward(POS_A_OK[1], POS_B_OK[1]) - POS_B_OK[1]))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(POS_A_OK[1], POS_B_OK[1]) - POS_B_OK[1])))*h + POS_B_OK[1] + (boundary_Forward(POS_A_OK[1], POS_B_OK[1]) - POS_B_OK[1]);
+        j_3_position = ((((POS_C_OK[2] - POS_B_OK[2])*t_acc / T) + (boundary_Forward(POS_A_OK[2], POS_B_OK[2]) - POS_B_OK[2]))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(POS_A_OK[2], POS_B_OK[2]) - POS_B_OK[2])))*h + POS_B_OK[2] + (boundary_Forward(POS_A_OK[2], POS_B_OK[2]) - POS_B_OK[2]);
+        j_4_position = ((((POS_C_OK[3] - POS_B_OK[3])*t_acc / T) + (boundary_Forward(POS_A_OK[3], POS_B_OK[3]) - POS_B_OK[3]))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(POS_A_OK[3], POS_B_OK[3]) - POS_B_OK[3])))*h + POS_B_OK[3] + (boundary_Forward(POS_A_OK[3], POS_B_OK[3]) - POS_B_OK[3]);
+        j_5_position = ((((POS_C_OK[4] - POS_B_OK[4])*t_acc / T) + (boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4]))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4])))*h + POS_B_OK[4] + (boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4]);
+        j_6_position = ((((POS_C_OK[5] - POS_B_OK[5])*t_acc / T) + (boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5]))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5])))*h + POS_B_OK[5] + (boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5]);
 
         t = t + 0.5;
-
-        //cout<< boundary_Backward(B_X, C_X) <<endl;
 
     }else{
 
@@ -971,39 +943,29 @@ void Path_Planning::joint_move_angle(float t){
 
         float h = t / T;
 
-        position_x = (C_X - B_X)*h + B_X;
-        position_y = (C_Y - B_Y)*h + B_Y;
-        position_z = (C_Z - B_Z)*h + B_Z;
-        position_A = (C_A - B_A)*h + B_A;
-        position_B = (C_B - B_B)*h + B_B;
-        position_C = (C_C - B_C)*h + B_C;
-
-        //cout<<"B_A = "<< B_A <<" A_A = "<<A_A<<endl;
-
-        //cout<< position_A << " " << position_B << " " << position_C<<endl;
-
-        position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
-                        sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
-                        -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
-                        0, 0, 0, 1;
-                        
-        rotation_2_quaternion(position_T);
+        j_1_position = (POS_C_OK[0] - POS_B_OK[0])*h + POS_B_OK[0];
+        j_2_position = (POS_C_OK[1] - POS_B_OK[1])*h + POS_B_OK[1];
+        j_3_position = (POS_C_OK[2] - POS_B_OK[2])*h + POS_B_OK[2];
+        j_4_position = (POS_C_OK[3] - POS_B_OK[3])*h + POS_B_OK[3];
+        j_5_position = (POS_C_OK[4] - POS_B_OK[4])*h + POS_B_OK[4];
+        j_6_position = (POS_C_OK[5] - POS_B_OK[5])*h + POS_B_OK[5];
 
         t = t + 0.5;
 
     }
-    */
 
 }
 
 int main(int argc, char **argv){
 
     char format;
+    int joint;
 
     ros::init(argc, argv,"path_planning");
 	ros::NodeHandle n;
     ros::Publisher cartesian_visualization_pub = n.advertise<visualization_msgs::Marker>("cartesian_visualization_marker", 100);
     ros::Publisher cartesian_visualization_pub_pose = n.advertise<geometry_msgs::PoseStamped>("pose", 100);
+    ros::Publisher joint_pub = n.advertise<std_msgs::Float32>("joint", 100);
 
     ros::Publisher cartesian_position_pub = n.advertise<geometry_msgs::Point>("position", 100);
     ros::Publisher cartesian_velocity_pub = n.advertise<geometry_msgs::Point>("velocity", 100);
@@ -1062,7 +1024,13 @@ int main(int argc, char **argv){
     cout<< " d = joint move angle         /  e = joint move angular velocity  /  f = joint move acceleration "<<endl;
     cout<<"g = cartesian move rviz visualization  /  h = joint move rviz visualization "<< endl;
     cin >> format;
+    
+    if(format == 'd' || format == 'e' || format == 'f'){
+        cout<<"which joint : ";
+        cin>> joint ;
 
+    }
+    
     for(float t = 0; t <= 1; t = t + 0.02){
 
         //z-axis
@@ -1074,6 +1042,7 @@ int main(int argc, char **argv){
 
         geometry_msgs::Point point;
         geometry_msgs::Pose pose;
+        std_msgs::Float32 j;
 
         if(format == 'a'){
 
@@ -1120,6 +1089,22 @@ int main(int argc, char **argv){
         }else if(format == 'd'){
 
             P.joint_move_angle(t);
+
+            if(joint == 1){
+                j.data = P.j_1_position;
+            }else if(joint == 2){
+                j.data = P.j_2_position;
+            }else if(joint == 3){
+                j.data = P.j_3_position;
+            }else if(joint == 4){
+                j.data = P.j_4_position;
+            }else if(joint == 5){
+                j.data = P.j_5_position;
+            }else if(joint == 6){
+                j.data = P.j_6_position;
+            }
+
+            joint_pub.publish(j);
 
         }else if(format == 'g'){
 
