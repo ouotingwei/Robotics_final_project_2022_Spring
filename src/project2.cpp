@@ -33,7 +33,6 @@ class Path_Planning{
     void joint_move_angle(float t);
     void joint_move_angular_velocity(float t);
     void joint_move_angular_acceleration(float t);
-    void joint_move_angle(float t);
     
     bool output_check(double JOINT_VARIABLE_SOLUTION[6]);
 
@@ -41,6 +40,7 @@ class Path_Planning{
     char mode;
     double CartesianPoint[4]={0,0,0,0}; // [0] = n, [1] = o, [2] = a, [3] = p
     double joint_variables[6]={0,0,0,0,0,0}; // [0] = θ1, [1] = θ2, [2] = d3 , [3] = θ4, [4] = θ5, [5] = d6
+
     //8 solution by calculation
     double JOINT_VARIABLE_SOLUTION_1[6] = {0,0,0,0,0,0};
     double JOINT_VARIABLE_SOLUTION_2[6] = {0,0,0,0,0,0};
@@ -961,6 +961,8 @@ void Path_Planning::joint_move_angle(float t){
 
 void Path_Planning::joint_move_angular_velocity(float t){
 
+    //find_ok_pos();
+
     if(t < 0.3){
 
         j_1_velocity = (POS_B_OK[0] - POS_A_OK[0]) / T;
@@ -1003,6 +1005,8 @@ void Path_Planning::joint_move_angular_velocity(float t){
 }
 
 void Path_Planning::joint_move_angular_acceleration(float t){
+
+    //find_ok_pos();
 
     if(t < 0.3){
 
