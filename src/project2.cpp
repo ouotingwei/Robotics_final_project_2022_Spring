@@ -18,46 +18,44 @@ class Path_Planning{
 
     public:
     //FUNCTION
-    void Kinematics();
-    void Inverse_Kinematics(Matrix<double, 4, 4> noap_input);
+    void Kinematics(float joint[6]);
+    void Inverse_Kinematics(Matrix<float, 4, 4> noap_input);
     void set();
-    double column_mul(Matrix<double, 3, 1> A, Matrix<double, 3, 1> B);
+    float column_mul(Matrix<float, 3, 1> A, Matrix<float, 3, 1> B);
     void cartesian_position_planning(float t);
     void cartesian_velocity_planning(float t);
     void cartesian_acceleration_planning(float t);
-    void rotation_2_quaternion(Matrix<double, 4, 4> POS_ROTATION);
+    void rotation_2_quaternion(Matrix<float, 4, 4> POS_ROTATION);
     float boundary_Forward(float A, float B);
     float divide(float A, float B);
-    double angle_normalization(double theta);
+    float angle_normalization(float theta);
     void find_ok_pos();
     void joint_move_angle(float t);
     void joint_move_angular_velocity(float t);
     void joint_move_angular_acceleration(float t);
-    
-    bool output_check(double JOINT_VARIABLE_SOLUTION[6]);
+    bool output_check(float JOINT_VARIABLE_SOLUTION[6]);
 
     //VARIABLE
     char mode;
-    double CartesianPoint[4]={0,0,0,0}; // [0] = n, [1] = o, [2] = a, [3] = p
-    double joint_variables[6]={0,0,0,0,0,0}; // [0] = θ1, [1] = θ2, [2] = d3 , [3] = θ4, [4] = θ5, [5] = d6
+    float CartesianPoint[4]={0,0,0,0}; // [0] = n, [1] = o, [2] = a, [3] = p
 
     //8 solution by calculation
-    double JOINT_VARIABLE_SOLUTION_1[6] = {0,0,0,0,0,0};
-    double JOINT_VARIABLE_SOLUTION_2[6] = {0,0,0,0,0,0};
-    double JOINT_VARIABLE_SOLUTION_3[6] = {0,0,0,0,0,0};
-    double JOINT_VARIABLE_SOLUTION_4[6] = {0,0,0,0,0,0};
-    double JOINT_VARIABLE_SOLUTION_5[6] = {0,0,0,0,0,0};
-    double JOINT_VARIABLE_SOLUTION_6[6] = {0,0,0,0,0,0};
-    double JOINT_VARIABLE_SOLUTION_7[6] = {0,0,0,0,0,0};
-    double JOINT_VARIABLE_SOLUTION_8[6] = {0,0,0,0,0,0};
+    float JOINT_VARIABLE_SOLUTION_1[6] = {0,0,0,0,0,0};
+    float JOINT_VARIABLE_SOLUTION_2[6] = {0,0,0,0,0,0};
+    float JOINT_VARIABLE_SOLUTION_3[6] = {0,0,0,0,0,0};
+    float JOINT_VARIABLE_SOLUTION_4[6] = {0,0,0,0,0,0};
+    float JOINT_VARIABLE_SOLUTION_5[6] = {0,0,0,0,0,0};
+    float JOINT_VARIABLE_SOLUTION_6[6] = {0,0,0,0,0,0};
+    float JOINT_VARIABLE_SOLUTION_7[6] = {0,0,0,0,0,0};
+    float JOINT_VARIABLE_SOLUTION_8[6] = {0,0,0,0,0,0};
 
-    Matrix<double, 4, 4> T6;
+    Matrix<float, 4, 4> T6;
 
     Quaterniond quaternion;
 
-    double POS_A_OK[6] = {-70.1668, -27.2045, 33.7313, -107.7851, 81.0769, 64.1944};
-    double POS_B_OK[6] = {7.0042, 72.7549, 33.7313, 0, -72.7549, -7.0042};
-    double POS_C_OK[6] = {109.8332, 27.2045, -33.7313, -22.0744, 64.5293, 9.8929};
+    float POS_A_OK[6] = {-70.1668, -27.2045, 33.7313, -107.7851, 81.0769, 64.1944};
+    float POS_B_OK[6] = {7.0042, 72.7549, 33.7313, 0, -72.7549, -7.0042};
+    float POS_C_OK[6] = {109.8332, 27.2045, -33.7313, -22.0744, 64.5293, 9.8929};
 
     //FLAG
     bool while_flag = false;
@@ -77,21 +75,21 @@ class Path_Planning{
     float j_1_velocity, j_2_velocity, j_3_velocity, j_4_velocity, j_5_velocity, j_6_velocity;
     float j_1_acceleration, j_2_acceleration, j_3_acceleration, j_4_acceleration, j_5_acceleration, j_6_acceleration;
 
-    Matrix<double, 4, 4> position_T;
-    Matrix<double, 4, 4> velocity_T;
-    Matrix<double, 4, 4> acceleration_T;
+    Matrix<float, 4, 4> position_T;
+    Matrix<float, 4, 4> velocity_T;
+    Matrix<float, 4, 4> acceleration_T;
 
     private:
 
-    double PI = 3.141592;
-    double d2 = 6.375000;
+    float PI = 3.141592;
+    float d2 = 6.375000;
     float sample_time = 0.002;
     float t_acc = 0.2;
     float T = 0.5;
     float trans_T = 2*t_acc;
-    Matrix<double, 4, 4> POS_A;
-    Matrix<double, 4, 4> POS_B;
-    Matrix<double, 4, 4> POS_C;
+    Matrix<float, 4, 4> POS_A;
+    Matrix<float, 4, 4> POS_B;
+    Matrix<float, 4, 4> POS_C;
     
 };
 
@@ -117,7 +115,7 @@ void Path_Planning::set(){
 //this function converts the rotation matrix into a quaternion representation
 //input: 4x4 matrix
 //output : change the global variable quaternion_ 
-void Path_Planning::rotation_2_quaternion(Matrix<double, 4, 4> POS_ROTATION){
+void Path_Planning::rotation_2_quaternion(Matrix<float, 4, 4> POS_ROTATION){
 
     Matrix3d rotation_matrix;
     rotation_matrix << POS_ROTATION(0, 0), POS_ROTATION(0, 1), POS_ROTATION(0, 2),
@@ -128,6 +126,7 @@ void Path_Planning::rotation_2_quaternion(Matrix<double, 4, 4> POS_ROTATION){
 
     //cout<< quaternion.x() <<" "<< quaternion.y() <<" "<< quaternion.z() <<" "<< quaternion.w() << endl;
     //cout<< POS_ROTATION <<endl;
+    //cout<<T6<<endl;
 
 }
 
@@ -417,7 +416,7 @@ void Path_Planning::cartesian_acceleration_planning(float t){
     }
 }
 
-double Path_Planning::column_mul(Matrix<double, 3, 1> A, Matrix<double, 3, 1> B){
+float Path_Planning::column_mul(Matrix<float, 3, 1> A, Matrix<float, 3, 1> B){
     return A(0,0)*B(0,0) + A(1, 0)*B(1, 0) + A(2, 0)*B(2, 0);
 }
 
@@ -425,16 +424,20 @@ double Path_Planning::column_mul(Matrix<double, 3, 1> A, Matrix<double, 3, 1> B)
 //this function using local variable 'x' 'y' 'z' 'a' 'A' 'B' 'C'
 //this function using local double matrix 'A1' 'A2' 'A3' 'A4' 'A5' 'A6' 'T6'
 //this function will calculate & print Cartesian Point
-void Path_Planning::Kinematics(){
+void Path_Planning::Kinematics(float joint_variables[6]){
     
-    double x, y, z, A, B, C, a;
-    Matrix<double, 4, 4> A1;
-    Matrix<double, 4, 4> A2;
-    Matrix<double, 4, 4> A3;
-    Matrix<double, 4, 4> A4;
-    Matrix<double, 4, 4> A5;
-    Matrix<double, 4, 4> A6;
-    Matrix<double, 4, 4> T6;
+    Matrix<float, 4, 4> A1;
+    Matrix<float, 4, 4> A2;
+    Matrix<float, 4, 4> A3;
+    Matrix<float, 4, 4> A4;
+    Matrix<float, 4, 4> A5;
+    Matrix<float, 4, 4> A6;
+
+    joint_variables[0] = joint_variables[0] * PI / 180;
+    joint_variables[1] = joint_variables[1] * PI / 180;
+    joint_variables[3] = joint_variables[3] * PI / 180;
+    joint_variables[4] = joint_variables[4] * PI / 180;
+    joint_variables[5] = joint_variables[5] * PI / 180;
 
     A1 <<    cos(joint_variables[0]),  0, -1*sin(joint_variables[0]), 0,
              sin(joint_variables[0]),  0,    cos(joint_variables[0]), 0,
@@ -443,7 +446,7 @@ void Path_Planning::Kinematics(){
 
     A2 <<    cos(joint_variables[1]),  0,    sin(joint_variables[1]), 0,
              sin(joint_variables[1]),  0, -1*cos(joint_variables[1]), 0,
-          0                         ,  1,                          0, 16.1925,      // UNIT = cm
+          0                         ,  1,                          0, 16.19,
           0                         ,  0,                          0, 1;
 
     A3 << 1, 0, 0, 0,
@@ -472,11 +475,20 @@ void Path_Planning::Kinematics(){
           0, 0, 0, 0;
     
 
-    T6 = (A1*(A2*(A3*(A4*(A5*A6)))));  // 1T6 MATRIX
+    T6 = A1*A2*A3*A4*A5*A6;  // 1T6 MATRIX
+
+    rotation_2_quaternion(T6);
+
+    position_x = T6(0, 3);
+    position_y = T6(1, 3);
+    position_z = T6(2, 3);
+
+    cout<<T6<<endl;
+    cout<<" "<<endl;
     
 }
 
-double Path_Planning::angle_normalization(double theta){
+float Path_Planning::angle_normalization(float theta){
     if(abs(theta) > 180 && theta < 0){
         
         return theta + 360;
@@ -494,16 +506,16 @@ double Path_Planning::angle_normalization(double theta){
 //this function using local variable 'double theta' & 'temp_a' 'temp_b'
 //this function using global matrix 'noap_input'
 //this finction will assign value to global array 'JOINT_VARIABLE_SOLUTION'
-void Path_Planning::Inverse_Kinematics(Matrix<double, 4, 4> noap_input){
-     double theta_1_1 , theta_1_2, 
+void Path_Planning::Inverse_Kinematics(Matrix<float, 4, 4> noap_input){
+     float theta_1_1 , theta_1_2, 
            theta_2_1, theta_2_2, theta_2_3, theta_2_4,
            theta_4_1_1, theta_4_1_2, theta_4_2_1, theta_4_2_2, theta_4_3_1, theta_4_3_2, theta_4_4_1, theta_4_4_2,
            theta_5_1_1, theta_5_1_2, theta_5_2_1, theta_5_2_2, theta_5_3_1, theta_5_3_2, theta_5_4_1, theta_5_4_2,
            theta_6_1_1, theta_6_1_2, theta_6_2_1, theta_6_2_2, theta_6_3_1, theta_6_3_2, theta_6_4_1, theta_6_4_2,
            d_3_1, d_3_2;
 
-    double temp_fr, temp_bk;
-    double temp_a, temp_b;
+    float temp_fr, temp_bk;
+    float temp_a, temp_b;
 
     //dx = 03 ; dy = 13 ; dz = 23
 
@@ -758,7 +770,7 @@ void Path_Planning::Inverse_Kinematics(Matrix<double, 4, 4> noap_input){
 
 //this function handles for showing the answer calculated by inverse kinematics
 //this function using global matrix & determine whether the angle limit is met
-bool Path_Planning::output_check(double JOINT_VARIABLE_SOLUTION[6]){
+bool Path_Planning::output_check(float JOINT_VARIABLE_SOLUTION[6]){
 
     return false;
 
@@ -925,6 +937,8 @@ void Path_Planning::joint_move_angle(float t){
         j_5_position = (POS_B_OK[4] - POS_A_OK[4])*h + POS_A_OK[4];
         j_6_position = (POS_B_OK[5] - POS_A_OK[5])*h + POS_A_OK[5];
 
+        float joint[6] = {j_1_position, j_2_position, j_3_position, j_4_position, j_5_position, j_6_position};
+        Kinematics(joint);
 
     }else if(t >= 0.3 && t < 0.7){
         t = t - 0.5;
@@ -937,6 +951,11 @@ void Path_Planning::joint_move_angle(float t){
         j_4_position = ((((POS_C_OK[3] - POS_B_OK[3])*t_acc / T) + (boundary_Forward(POS_A_OK[3], POS_B_OK[3]) - POS_B_OK[3]))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(POS_A_OK[3], POS_B_OK[3]) - POS_B_OK[3])))*h + POS_B_OK[3] + (boundary_Forward(POS_A_OK[3], POS_B_OK[3]) - POS_B_OK[3]);
         j_5_position = ((((POS_C_OK[4] - POS_B_OK[4])*t_acc / T) + (boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4]))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4])))*h + POS_B_OK[4] + (boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4]);
         j_6_position = ((((POS_C_OK[5] - POS_B_OK[5])*t_acc / T) + (boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5]))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5])))*h + POS_B_OK[5] + (boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5]);
+
+        float joint[6] = {j_1_position, j_2_position, j_3_position, j_4_position, j_5_position, j_6_position};
+        Kinematics(joint);
+
+        //cout<<T6<<endl;
 
         t = t + 0.5;
 
@@ -952,6 +971,9 @@ void Path_Planning::joint_move_angle(float t){
         j_4_position = (POS_C_OK[3] - POS_B_OK[3])*h + POS_B_OK[3];
         j_5_position = (POS_C_OK[4] - POS_B_OK[4])*h + POS_B_OK[4];
         j_6_position = (POS_C_OK[5] - POS_B_OK[5])*h + POS_B_OK[5];
+
+        float joint[6] = {j_1_position, j_2_position, j_3_position, j_4_position, j_5_position, j_6_position};
+        Kinematics(joint);
 
         t = t + 0.5;
 
@@ -1098,12 +1120,17 @@ int main(int argc, char **argv){
     
     //line_arrow.lifetime = ros::Duration();
 
-    ros::Rate r(10);
+    ros::Rate r(100);
 
     cout<< "[ * ]Please choose a output format "<< endl;
-    cout<< " a = cartesian move position  /  b = cartesian move velocity      /  c = cartesian move acceleration "<< endl;
-    cout<< " d = joint move angle         /  e = joint move angular velocity  /  f = joint move acceleration "<<endl;
-    cout<<"g = cartesian move rviz visualization  /  h = joint move rviz visualization "<< endl;
+    cout<< "    a = cartesian move position " <<endl;
+    cout<< "    b = cartesian move velocity " <<endl;
+    cout<< "    c = cartesian move acceleration "<< endl;
+    cout<< "    d = joint move angle  " << endl;
+    cout<< "    e = joint move angular velocity " <<endl;
+    cout<< "    f = joint move acceleration "<<endl;
+    cout<< "    g = cartesian move rviz visualization" <<endl;
+    cout<< "    h = joint move rviz visualization "<< endl;
     cin >> format;
     
     if(format == 'd' || format == 'e' || format == 'f'){
@@ -1112,7 +1139,7 @@ int main(int argc, char **argv){
 
     }
     
-    for(float t = 0; t <= 1; t = t + 0.02){
+    for(float t = 0; t <= 1; t = t + 0.002){
 
         //z-axis
         /*
@@ -1234,6 +1261,32 @@ int main(int argc, char **argv){
             point.x = P.position_x;
             point.y = P.position_y;
             point.z = P.position_z;
+            //points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1;
+
+            line_arrow.pose.position.x = P.position_x;
+            line_arrow.pose.position.y = P.position_y;
+            line_arrow.pose.position.z = P.position_z;
+            line_arrow.pose.orientation.x = P.quaternion.x();
+            line_arrow.pose.orientation.y = P.quaternion.y();
+            line_arrow.pose.orientation.z = P.quaternion.z();
+            line_arrow.pose.orientation.w = P.quaternion.w();
+
+            //cout<<P.quaternion.x() << " "<<P.quaternion.y() << " "<<P.quaternion.z() << " " << P.quaternion.w()<<endl;  
+
+            points.points.push_back(point);
+            line_strip.points.push_back(point);
+
+            cartesian_visualization_pub.publish(points);
+            cartesian_visualization_pub.publish(line_strip);
+            cartesian_visualization_pub.publish(line_arrow);
+
+        }else if(format == 'h'){
+
+            P.joint_move_angle(t);
+
+            point.x = P.position_x;
+            point.y = P.position_y;
+            point.z = P.position_z;
             points.pose.orientation.w = line_strip.pose.orientation.w = line_list.pose.orientation.w = 1;
 
             line_arrow.pose.position.x = P.position_x;
@@ -1253,6 +1306,8 @@ int main(int argc, char **argv){
             cartesian_visualization_pub.publish(line_strip);
             cartesian_visualization_pub.publish(line_arrow);
 
+        }else{
+            cout<< "[!] error " <<endl;
         }
 
         r.sleep();
