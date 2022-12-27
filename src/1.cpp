@@ -36,9 +36,11 @@ class Path_Planning{
     bool output_check(float JOINT_VARIABLE_SOLUTION[6]);
 
     //VARIABLE
+    char mode;
     float CartesianPoint[4]={0,0,0,0}; // [0] = n, [1] = o, [2] = a, [3] = p
 
-    float JOINT_VARIABLE_SOLUTION_1[6] = {0,0,0,0,0,0}; //8 solution by calculation
+    //8 solution by calculation
+    float JOINT_VARIABLE_SOLUTION_1[6] = {0,0,0,0,0,0};
     float JOINT_VARIABLE_SOLUTION_2[6] = {0,0,0,0,0,0};
     float JOINT_VARIABLE_SOLUTION_3[6] = {0,0,0,0,0,0};
     float JOINT_VARIABLE_SOLUTION_4[6] = {0,0,0,0,0,0};
@@ -47,15 +49,16 @@ class Path_Planning{
     float JOINT_VARIABLE_SOLUTION_7[6] = {0,0,0,0,0,0};
     float JOINT_VARIABLE_SOLUTION_8[6] = {0,0,0,0,0,0};
 
-    Matrix<float, 4, 4> T6; // endpoint pose
+    Matrix<float, 4, 4> T6;
 
-    Quaterniond quaternion; // quaternion
+    Quaterniond quaternion;
 
-    float POS_A_OK[6] = {-70.1668, -27.2045, 33.7313, -107.7851, 81.0769, 64.1944}; 
+    float POS_A_OK[6] = {-70.1668, -27.2045, 33.7313, -107.7851, 81.0769, 64.1944};
     float POS_B_OK[6] = {7.0042, 72.7549, 33.7313, 0, -72.7549, -7.0042};
     float POS_C_OK[6] = {109.8332, 27.2045, -33.7313, -22.0744, 64.5293, 9.8929};
 
     //FLAG
+    bool while_flag = false;
     bool rotation_or_linear = false; //false = linear , true = linear
 
     //output_data
@@ -121,18 +124,16 @@ void Path_Planning::rotation_2_quaternion(Matrix<float, 4, 4> POS_ROTATION){
 
     quaternion = rotation_matrix;
 
+    //cout<< quaternion.x() <<" "<< quaternion.y() <<" "<< quaternion.z() <<" "<< quaternion.w() << endl;
+    //cout<< POS_ROTATION <<endl;
+    //cout<<T6<<endl;
+
 }
 
-//this function handles the transition point from linear portion to transition portion
-//input : float A & B
-//return : float 
 float Path_Planning::boundary_Forward(float A, float B){
     return ((B - A)*(0.5 - t_acc) / 0.5) + A;
 }
 
-//check for division operation problem
-//input : divisor & dividend
-//return : result of division
 float Path_Planning::divide(float A, float B){
     if(A == 0 && B == 0){
         return 0;
@@ -145,7 +146,6 @@ float Path_Planning::divide(float A, float B){
     }
 }
 
-//input : real time t
 void Path_Planning::cartesian_position_planning(float t){
 
     A_X = POS_A(0, 3);
@@ -184,16 +184,20 @@ void Path_Planning::cartesian_position_planning(float t){
         position_B = (B_B - A_B)*h + A_B;
         position_C = (B_C - A_C)*h + A_C;
 
+        //cout<<"B_C = "<<B_C <<" A_C = "<<A_C<<endl;
+
+        //cout<< position_A << " " << position_B << " " << position_C<<endl;
+
         position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
                         sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
                         -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
                         0, 0, 0, 1;
 
-        rotation_2_quaternion(position_T); 
+        rotation_2_quaternion(position_T);
+
 
     }else if(t >= 0.3 && t < 0.7){
-
-        t = t - 0.5; //time normalization
+        t = t - 0.5;
 
         float h = (t + t_acc) / (trans_T);
 
@@ -204,6 +208,10 @@ void Path_Planning::cartesian_position_planning(float t){
         position_B = ((((C_B - B_B)*t_acc / T) + (boundary_Forward(A_B, B_B) - B_B))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_B, B_B) - B_B)))*h + B_B + (boundary_Forward(A_B, B_B) - B_B);
         position_C = ((((C_C - B_C)*t_acc / T) + (boundary_Forward(A_C, B_C) - B_C))*(2 - h)*pow(h, 2) - 2*((boundary_Forward(A_C, B_C) - B_C)))*h + B_C + (boundary_Forward(A_C, B_C) - B_C);
 
+        //cout<<"B_A = "<<B_A <<" A_A = "<<A_A<<endl;
+
+        //cout<< position_A << " " << position_B << " " << position_C<<endl;
+
         position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
                         sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
                         -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
@@ -211,11 +219,13 @@ void Path_Planning::cartesian_position_planning(float t){
 
         rotation_2_quaternion(position_T);
 
-        t = t + 0.5; //time normalization
+        t = t + 0.5;
+
+        //cout<< boundary_Backward(B_X, C_X) <<endl;
 
     }else{
 
-        t = t - 0.5; //time normalization
+        t = t - 0.5;
 
         float h = t / T;
 
@@ -226,6 +236,10 @@ void Path_Planning::cartesian_position_planning(float t){
         position_B = (C_B - B_B)*h + B_B;
         position_C = (C_C - B_C)*h + B_C;
 
+        //cout<<"B_A = "<< B_A <<" A_A = "<<A_A<<endl;
+
+        //cout<< position_A << " " << position_B << " " << position_C<<endl;
+
         position_T << cos(position_A)*cos(position_B)*cos(position_C) - sin(position_A)*sin(position_C),    -1*cos(position_A)*cos(position_B)*sin(position_C) - sin(position_A)*cos(position_C),   cos(position_A)*sin(position_B),    position_x,
                         sin(position_A)*cos(position_B)*cos(position_C) + cos(position_A)*sin(position_C),    -1*sin(position_A)*cos(position_B)*sin(position_C) + cos(position_A)*cos(position_C),     sin(position_A)*sin(position_B),    position_y,
                         -1*sin(position_B)*cos(position_C),     sin(position_B)*sin(position_C),    cos(position_B),    position_z,
@@ -233,7 +247,7 @@ void Path_Planning::cartesian_position_planning(float t){
                         
         rotation_2_quaternion(position_T);
 
-        t = t + 0.5; //time normalization
+        t = t + 0.5;
 
     }
 
@@ -281,8 +295,7 @@ void Path_Planning::cartesian_velocity_planning(float t){
         rotation_2_quaternion(velocity_T);
 
     }else if(t >= 0.3 && t < 0.7){
-
-        t = t - 0.5; //time normalization
+        t = t - 0.5;
 
         float h = (t + t_acc) / (trans_T);
 
@@ -300,11 +313,11 @@ void Path_Planning::cartesian_velocity_planning(float t){
 
         rotation_2_quaternion(velocity_T);
 
-        t = t + 0.5; //time normalization
+        t = t + 0.5;
 
     }else{
 
-        t = t - 0.5; //time normalization
+        t = t - 0.5;
 
         float h = t / T;
 
@@ -322,7 +335,7 @@ void Path_Planning::cartesian_velocity_planning(float t){
 
         rotation_2_quaternion(velocity_T);
 
-        t = t + 0.5; //time normalization
+        t = t + 0.5;
 
     }
 }
@@ -364,8 +377,7 @@ void Path_Planning::cartesian_acceleration_planning(float t){
         rotation_2_quaternion(acceleration_T);
 
     }else if(t >= 0.3 && t < 0.7){
-
-        t = t - 0.5;//time normalization
+        t = t - 0.5;
 
         float h = (t + t_acc) / (trans_T);
 
@@ -384,11 +396,11 @@ void Path_Planning::cartesian_acceleration_planning(float t){
 
         rotation_2_quaternion(acceleration_T);
 
-        t = t + 0.5;//time normalization
+        t = t + 0.5;
 
     }else{
 
-        t = t - 0.5;//time normalization
+        t = t - 0.5;
 
         acceleration_x = acceleration_y = acceleration_z = acceleration_A = acceleration_B = acceleration_C = 0;
 
@@ -399,7 +411,7 @@ void Path_Planning::cartesian_acceleration_planning(float t){
 
         rotation_2_quaternion(acceleration_T);
 
-        t = t + 0.5;//time normalization
+        t = t + 0.5;
 
     }
 }
@@ -470,10 +482,12 @@ void Path_Planning::Kinematics(float joint_variables[6]){
     position_x = T6(0, 3);
     position_y = T6(1, 3);
     position_z = T6(2, 3);
+
+    cout<<T6<<endl;
+    cout<<" "<<endl;
     
 }
 
-//avoid angle exceeding +-180
 float Path_Planning::angle_normalization(float theta){
     if(abs(theta) > 180 && theta < 0){
         
@@ -832,6 +846,8 @@ void Path_Planning::find_ok_pos(){
         }
     }
 
+    
+
     Inverse_Kinematics(POS_B);
 
     if(output_check(JOINT_VARIABLE_SOLUTION_1) == false){
@@ -912,7 +928,7 @@ void Path_Planning::joint_move_angle(float t){
     
     if(t < 0.3){
         
-        float h = t / T; //time normalization
+        float h = t / T;
 
         j_1_position = (POS_B_OK[0] - POS_A_OK[0])*h + POS_A_OK[0];
         j_2_position = (POS_B_OK[1] - POS_A_OK[1])*h + POS_A_OK[1];
@@ -925,8 +941,7 @@ void Path_Planning::joint_move_angle(float t){
         Kinematics(joint);
 
     }else if(t >= 0.3 && t < 0.7){
-
-        t = t - 0.5;//time normalization
+        t = t - 0.5;
 
         float h = (t + t_acc) / (trans_T);
 
@@ -940,11 +955,13 @@ void Path_Planning::joint_move_angle(float t){
         float joint[6] = {j_1_position, j_2_position, j_3_position, j_4_position, j_5_position, j_6_position};
         Kinematics(joint);
 
-        t = t + 0.5; //time normalization
+        //cout<<T6<<endl;
+
+        t = t + 0.5;
 
     }else{
 
-        t = t - 0.5; //time normalization
+        t = t - 0.5;
 
         float h = t / T;
 
@@ -958,7 +975,7 @@ void Path_Planning::joint_move_angle(float t){
         float joint[6] = {j_1_position, j_2_position, j_3_position, j_4_position, j_5_position, j_6_position};
         Kinematics(joint);
 
-        t = t + 0.5; //time normalization
+        t = t + 0.5;
 
     }
 
@@ -977,11 +994,8 @@ void Path_Planning::joint_move_angular_velocity(float t){
         j_5_velocity = (POS_B_OK[4] - POS_A_OK[4]) / T;
         j_1_velocity = (POS_B_OK[5] - POS_A_OK[5]) / T;
 
-        float joint[6] = {j_1_position, j_2_position, j_3_position, j_4_position, j_5_position, j_6_position};
-
     }else if(t >= 0.3 && t < 0.7){
-
-        t = t - 0.5;//time normalization
+        t = t - 0.5;
 
         float h = (t + t_acc) / (trans_T);
 
@@ -992,11 +1006,11 @@ void Path_Planning::joint_move_angular_velocity(float t){
         j_5_velocity = ((((POS_C_OK[4] - POS_B_OK[4])*t_acc / T) + (boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4]))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4]))) / t_acc;
         j_6_velocity = ((((POS_C_OK[5] - POS_B_OK[5])*t_acc / T) + (boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5]))*(1.5 - h)*2*pow(h, 2) - ((boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5]))) / t_acc;
 
-        t = t + 0.5;//time normalization
+        t = t + 0.5;
 
     }else{
 
-        t = t - 0.5;//time normalization
+        t = t - 0.5;
 
         float h = t / T;
 
@@ -1007,9 +1021,7 @@ void Path_Planning::joint_move_angular_velocity(float t){
         j_5_velocity = (POS_C_OK[4] - POS_B_OK[4]) / T;
         j_6_velocity = (POS_C_OK[5] - POS_B_OK[5]) / T;
 
-        float joint[6] = {j_1_position, j_2_position, j_3_position, j_4_position, j_5_position, j_6_position};
-
-        t = t + 0.5;//time normalization
+        t = t + 0.5;
 
     }
 }
@@ -1023,8 +1035,7 @@ void Path_Planning::joint_move_angular_acceleration(float t){
         j_1_acceleration = j_2_acceleration = j_3_acceleration = j_4_acceleration = j_5_acceleration = j_6_acceleration = 0;
 
     }else if(t >= 0.3 && t < 0.7){
-
-        t = t - 0.5;//time normalization
+        t = t - 0.5;
 
         float h = (t + t_acc) / (trans_T);
 
@@ -1035,26 +1046,26 @@ void Path_Planning::joint_move_angular_acceleration(float t){
         j_5_acceleration = ((((POS_C_OK[4] - POS_B_OK[4])*t_acc / T) + (boundary_Forward(POS_A_OK[4], POS_B_OK[4]) - POS_B_OK[4]))*(1 - h))*3*h / pow(t_acc, 2);
         j_6_acceleration = ((((POS_C_OK[5] - POS_B_OK[5])*t_acc / T) + (boundary_Forward(POS_A_OK[5], POS_B_OK[5]) - POS_B_OK[5]))*(1 - h))*3*h / pow(t_acc, 2);
 
-        t = t + 0.5;//time normalization
+        t = t + 0.5;
 
     }else{
 
-        t = t - 0.5;//time normalization
+        t = t - 0.5;
 
         j_1_acceleration = j_2_acceleration = j_3_acceleration = j_4_acceleration = j_5_acceleration = j_6_acceleration = 0;
 
-        t = t + 0.5;//time normalization
+        t = t + 0.5;
 
     }
 }
 
 int main(int argc, char **argv){
 
-    char format;
-    int joint;
+    char format; //作為輸入選擇的變數
+    int joint; //作為輸入選擇的變數
 
-    ros::init(argc, argv,"path_planning");
-	ros::NodeHandle n;
+    ros::init(argc, argv,"path_planning"); //ros initial
+	ros::NodeHandle n; // ros namespace = n
     ros::Publisher cartesian_visualization_pub = n.advertise<visualization_msgs::Marker>("cartesian_visualization_marker", 100);
     ros::Publisher cartesian_visualization_pub_pose = n.advertise<geometry_msgs::PoseStamped>("pose", 100);
     ros::Publisher joint_pub = n.advertise<std_msgs::Float32>("joint", 100);
@@ -1106,6 +1117,8 @@ int main(int argc, char **argv){
     // Arrow list is red
     line_arrow.color.r = 1.0;
     line_arrow.color.a = 1.0;
+    
+    //line_arrow.lifetime = ros::Duration();
 
     ros::Rate r(100);
 
@@ -1127,6 +1140,13 @@ int main(int argc, char **argv){
     }
     
     for(float t = 0; t <= 1; t = t + 0.002){
+
+        //z-axis
+        /*
+        points.pose.orientation.x = line_strip.pose.orientation.x = line_list.pose.orientation.x = P.quaternion.x();
+        points.pose.orientation.y = line_strip.pose.orientation.y = line_list.pose.orientation.y = P.quaternion.y();
+        points.pose.orientation.z = line_strip.pose.orientation.z = line_list.pose.orientation.z = P.quaternion.z();
+        */
 
         geometry_msgs::Point point;
         geometry_msgs::Pose pose;
@@ -1201,15 +1221,15 @@ int main(int argc, char **argv){
             if(joint == 1){
                 j.data = P.j_1_velocity;
             }else if(joint == 2){
-                j.data = P.j_2_velocity;
+                j.data = P.j_1_velocity;
             }else if(joint == 3){
-                j.data = P.j_3_velocity;
+                j.data = P.j_1_velocity;
             }else if(joint == 4){
-                j.data = P.j_4_velocity;
+                j.data = P.j_1_velocity;
             }else if(joint == 5){
-                j.data = P.j_5_velocity;
+                j.data = P.j_1_velocity;
             }else if(joint == 6){
-                j.data = P.j_6_velocity;
+                j.data = P.j_1_velocity;
             }
 
             joint_pub.publish(j);
@@ -1221,15 +1241,15 @@ int main(int argc, char **argv){
             if(joint == 1){
                 j.data = P.j_1_acceleration;
             }else if(joint == 2){
-                j.data = P.j_2_acceleration;
+                j.data = P.j_1_acceleration;
             }else if(joint == 3){
-                j.data = P.j_3_acceleration;
+                j.data = P.j_1_acceleration;
             }else if(joint == 4){
-                j.data = P.j_4_acceleration;
+                j.data = P.j_1_acceleration;
             }else if(joint == 5){
-                j.data = P.j_5_acceleration;
+                j.data = P.j_1_acceleration;
             }else if(joint == 6){
-                j.data = P.j_6_acceleration;
+                j.data = P.j_1_acceleration;
             }
 
             joint_pub.publish(j);
@@ -1291,6 +1311,7 @@ int main(int argc, char **argv){
         }
 
         r.sleep();
+
 
     }
     
