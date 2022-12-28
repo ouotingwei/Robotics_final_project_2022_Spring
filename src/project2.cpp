@@ -975,7 +975,7 @@ void Path_Planning::joint_move_angular_velocity(float t){
         j_3_velocity = (POS_B_OK[2] - POS_A_OK[2]) / T;
         j_4_velocity = (POS_B_OK[3] - POS_A_OK[3]) / T;
         j_5_velocity = (POS_B_OK[4] - POS_A_OK[4]) / T;
-        j_1_velocity = (POS_B_OK[5] - POS_A_OK[5]) / T;
+        j_6_velocity = (POS_B_OK[5] - POS_A_OK[5]) / T;
 
         float joint[6] = {j_1_position, j_2_position, j_3_position, j_4_position, j_5_position, j_6_position};
 
@@ -1059,7 +1059,7 @@ int main(int argc, char **argv){
     ros::Publisher cartesian_visualization_pub_pose = n.advertise<geometry_msgs::PoseStamped>("pose", 100);
     ros::Publisher joint_pub = n.advertise<std_msgs::Float32>("joint", 100);
 
-    ros::Publisher cartesian_position_pub = n.advertise<geometry_msgs::Point>("position", 100);
+    ros::Publisher cartesian_position_pub = n.advertise<geometry_msgs::Point>("position", 1000);
     ros::Publisher cartesian_velocity_pub = n.advertise<geometry_msgs::Point>("velocity", 100);
     ros::Publisher cartesian_acceleration_pub = n.advertise<geometry_msgs::Point>("acceleration", 100);
 
@@ -1107,7 +1107,7 @@ int main(int argc, char **argv){
     line_arrow.color.r = 1.0;
     line_arrow.color.a = 1.0;
 
-    ros::Rate r(100);
+    ros::Rate r(500);
 
     cout<< "[ * ]Please choose a output format "<< endl;
     cout<< "    a = cartesian move position " <<endl;
